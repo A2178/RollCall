@@ -1,0 +1,99 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Schema Namespace="TEST_RollCall_Meeting_DBModel1" Alias="Self" annotation:UseStrongSpatialTypes="false" xmlns:annotation="http://schemas.microsoft.com/ado/2009/02/edm/annotation" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm">
+  <EntityType Name="RCS_MEETING">
+    <Key>
+      <PropertyRef Name="AUTO_ID" />
+    </Key>
+    <Property Name="AUTO_ID" Type="Int64" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+    <Property Name="AUTO_GUID" Type="Guid" Nullable="false" />
+    <Property Name="MEETING_NAME" Type="String" MaxLength="100" FixedLength="false" Unicode="true" Nullable="false" />
+    <Property Name="MEETING_START" Type="DateTime" Nullable="false" Precision="7" />
+    <Property Name="MEETING_END" Type="DateTime" Nullable="false" Precision="7" />
+    <Property Name="REMARK" Type="String" MaxLength="Max" FixedLength="false" Unicode="true" />
+    <Property Name="IS_ACTIVED" Type="Boolean" Nullable="false" />
+    <Property Name="CREATE_BY" Type="String" MaxLength="20" FixedLength="false" Unicode="true" Nullable="false" />
+    <Property Name="CREATE_TIME" Type="DateTime" Nullable="false" Precision="7" />
+    <Property Name="MODIFY_BY" Type="String" MaxLength="20" FixedLength="false" Unicode="true" Nullable="false" />
+    <Property Name="MODIFY_TIME" Type="DateTime" Nullable="false" Precision="7" />
+    <Property Name="IS_DELETED" Type="Boolean" Nullable="false" />
+    <Property Name="DELETE_BY" Type="String" MaxLength="20" FixedLength="false" Unicode="true" />
+    <Property Name="DELETE_TIME" Type="DateTime" Precision="7" />
+    <NavigationProperty Name="RCS_MEMBER" Relationship="TEST_RollCall_Meeting_DBModel1.RCS_MEMBER_FK1" FromRole="RCS_MEETING" ToRole="RCS_MEMBER" />
+  </EntityType>
+  <EntityContainer Name="TEST_RollCallDBEntities" annotation:LazyLoadingEnabled="true">
+    <EntitySet Name="RCS_MEETING" EntityType="Self.RCS_MEETING" />
+    <EntitySet Name="RCS_CALL_LOG" EntityType="TEST_RollCall_Meeting_DBModel1.RCS_CALL_LOG" />
+    <EntitySet Name="RCS_MEMBER" EntityType="TEST_RollCall_Meeting_DBModel1.RCS_MEMBER" />
+    <AssociationSet Name="RCS_CALL_LOG_FK1" Association="TEST_RollCall_Meeting_DBModel1.RCS_CALL_LOG_FK1">
+      <End Role="RCS_MEMBER" EntitySet="RCS_MEMBER" />
+      <End Role="RCS_CALL_LOG" EntitySet="RCS_CALL_LOG" />
+    </AssociationSet>
+    <AssociationSet Name="RCS_MEMBER_FK1" Association="TEST_RollCall_Meeting_DBModel1.RCS_MEMBER_FK1">
+      <End Role="RCS_MEETING" EntitySet="RCS_MEETING" />
+      <End Role="RCS_MEMBER" EntitySet="RCS_MEMBER" />
+    </AssociationSet>
+  </EntityContainer>
+  <EntityType Name="RCS_CALL_LOG">
+    <Key>
+      <PropertyRef Name="AUTO_ID" />
+    </Key>
+    <Property Name="AUTO_ID" Type="Int64" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+    <Property Name="AUTO_GUID" Type="Guid" Nullable="false" />
+    <Property Name="MEMBER_AUTO_ID" Type="Int64" Nullable="false" />
+    <Property Name="ROUND" Type="Int32" Nullable="false" />
+    <Property Name="REMARK" Type="String" MaxLength="Max" FixedLength="false" Unicode="true" />
+    <Property Name="IS_ACTIVED" Type="Boolean" Nullable="false" />
+    <Property Name="CREATE_BY" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="true" />
+    <Property Name="CREATE_TIME" Type="DateTime" Nullable="false" Precision="7" />
+    <Property Name="MODIFY_BY" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="true" />
+    <Property Name="MODIFY_TIME" Type="DateTime" Nullable="false" Precision="7" />
+    <Property Name="IS_DELETED" Type="Boolean" Nullable="false" />
+    <Property Name="DELETE_BY" Type="String" MaxLength="20" FixedLength="false" Unicode="true" />
+    <Property Name="DELETE_TIME" Type="DateTime" Precision="7" />
+    <NavigationProperty Name="RCS_MEMBER" Relationship="TEST_RollCall_Meeting_DBModel1.RCS_CALL_LOG_FK1" FromRole="RCS_CALL_LOG" ToRole="RCS_MEMBER" />
+  </EntityType>
+  <EntityType Name="RCS_MEMBER">
+    <Key>
+      <PropertyRef Name="AUTO_ID" />
+    </Key>
+    <Property Name="AUTO_ID" Type="Int64" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+    <Property Name="AUTO_GUID" Type="Guid" Nullable="false" />
+    <Property Name="MEETING_AUTO_ID" Type="Int64" Nullable="false" />
+    <Property Name="MEMBER_NAME" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="true" />
+    <Property Name="REMARK" Type="String" MaxLength="Max" FixedLength="false" Unicode="true" />
+    <Property Name="IS_ACTIVED" Type="Boolean" Nullable="false" />
+    <Property Name="CREATE_BY" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="true" />
+    <Property Name="CREATE_TIME" Type="DateTime" Nullable="false" Precision="7" />
+    <Property Name="MODIFY_BY" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="true" />
+    <Property Name="MODIFY_TIME" Type="DateTime" Nullable="false" Precision="7" />
+    <Property Name="IS_DELETED" Type="Boolean" Nullable="false" />
+    <Property Name="DELETE_BY" Type="String" MaxLength="20" FixedLength="false" Unicode="true" />
+    <Property Name="DELETE_TIME" Type="DateTime" Precision="7" />
+    <NavigationProperty Name="RCS_CALL_LOG" Relationship="TEST_RollCall_Meeting_DBModel1.RCS_CALL_LOG_FK1" FromRole="RCS_MEMBER" ToRole="RCS_CALL_LOG" />
+    <NavigationProperty Name="RCS_MEETING" Relationship="TEST_RollCall_Meeting_DBModel1.RCS_MEMBER_FK1" FromRole="RCS_MEMBER" ToRole="RCS_MEETING" />
+  </EntityType>
+  <Association Name="RCS_CALL_LOG_FK1">
+    <End Type="TEST_RollCall_Meeting_DBModel1.RCS_MEMBER" Role="RCS_MEMBER" Multiplicity="1" />
+    <End Type="TEST_RollCall_Meeting_DBModel1.RCS_CALL_LOG" Role="RCS_CALL_LOG" Multiplicity="*" />
+    <ReferentialConstraint>
+      <Principal Role="RCS_MEMBER">
+        <PropertyRef Name="AUTO_ID" />
+      </Principal>
+      <Dependent Role="RCS_CALL_LOG">
+        <PropertyRef Name="MEMBER_AUTO_ID" />
+      </Dependent>
+    </ReferentialConstraint>
+  </Association>
+  <Association Name="RCS_MEMBER_FK1">
+    <End Type="TEST_RollCall_Meeting_DBModel1.RCS_MEETING" Role="RCS_MEETING" Multiplicity="1" />
+    <End Type="TEST_RollCall_Meeting_DBModel1.RCS_MEMBER" Role="RCS_MEMBER" Multiplicity="*" />
+    <ReferentialConstraint>
+      <Principal Role="RCS_MEETING">
+        <PropertyRef Name="AUTO_ID" />
+      </Principal>
+      <Dependent Role="RCS_MEMBER">
+        <PropertyRef Name="MEETING_AUTO_ID" />
+      </Dependent>
+    </ReferentialConstraint>
+  </Association>
+</Schema>

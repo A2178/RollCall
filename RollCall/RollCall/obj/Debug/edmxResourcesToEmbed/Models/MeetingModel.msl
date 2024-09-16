@@ -1,0 +1,63 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Mapping Space="C-S" xmlns="http://schemas.microsoft.com/ado/2009/11/mapping/cs">
+  <EntityContainerMapping StorageEntityContainer="TEST_RollCall_Meeting_DBModel1StoreContainer" CdmEntityContainer="TEST_RollCallDBEntities">
+    <EntitySetMapping Name="RCS_MEETING">
+      <EntityTypeMapping TypeName="TEST_RollCall_Meeting_DBModel1.RCS_MEETING">
+        <MappingFragment StoreEntitySet="RCS_MEETING">
+          <ScalarProperty Name="AUTO_ID" ColumnName="AUTO_ID" />
+          <ScalarProperty Name="AUTO_GUID" ColumnName="AUTO_GUID" />
+          <ScalarProperty Name="MEETING_NAME" ColumnName="MEETING_NAME" />
+          <ScalarProperty Name="MEETING_START" ColumnName="MEETING_START" />
+          <ScalarProperty Name="MEETING_END" ColumnName="MEETING_END" />
+          <ScalarProperty Name="REMARK" ColumnName="REMARK" />
+          <ScalarProperty Name="IS_ACTIVED" ColumnName="IS_ACTIVED" />
+          <ScalarProperty Name="CREATE_BY" ColumnName="CREATE_BY" />
+          <ScalarProperty Name="CREATE_TIME" ColumnName="CREATE_TIME" />
+          <ScalarProperty Name="MODIFY_BY" ColumnName="MODIFY_BY" />
+          <ScalarProperty Name="MODIFY_TIME" ColumnName="MODIFY_TIME" />
+          <ScalarProperty Name="IS_DELETED" ColumnName="IS_DELETED" />
+          <ScalarProperty Name="DELETE_BY" ColumnName="DELETE_BY" />
+          <ScalarProperty Name="DELETE_TIME" ColumnName="DELETE_TIME" />
+        </MappingFragment>
+      </EntityTypeMapping>
+    </EntitySetMapping>
+    <EntitySetMapping Name="RCS_CALL_LOG">
+      <EntityTypeMapping TypeName="TEST_RollCall_Meeting_DBModel1.RCS_CALL_LOG">
+        <MappingFragment StoreEntitySet="RCS_CALL_LOG">
+          <ScalarProperty Name="DELETE_TIME" ColumnName="DELETE_TIME" />
+          <ScalarProperty Name="DELETE_BY" ColumnName="DELETE_BY" />
+          <ScalarProperty Name="IS_DELETED" ColumnName="IS_DELETED" />
+          <ScalarProperty Name="MODIFY_TIME" ColumnName="MODIFY_TIME" />
+          <ScalarProperty Name="MODIFY_BY" ColumnName="MODIFY_BY" />
+          <ScalarProperty Name="CREATE_TIME" ColumnName="CREATE_TIME" />
+          <ScalarProperty Name="CREATE_BY" ColumnName="CREATE_BY" />
+          <ScalarProperty Name="IS_ACTIVED" ColumnName="IS_ACTIVED" />
+          <ScalarProperty Name="REMARK" ColumnName="REMARK" />
+          <ScalarProperty Name="ROUND" ColumnName="ROUND" />
+          <ScalarProperty Name="MEMBER_AUTO_ID" ColumnName="MEMBER_AUTO_ID" />
+          <ScalarProperty Name="AUTO_GUID" ColumnName="AUTO_GUID" />
+          <ScalarProperty Name="AUTO_ID" ColumnName="AUTO_ID" />
+        </MappingFragment>
+      </EntityTypeMapping>
+    </EntitySetMapping>
+    <EntitySetMapping Name="RCS_MEMBER">
+      <EntityTypeMapping TypeName="TEST_RollCall_Meeting_DBModel1.RCS_MEMBER">
+        <MappingFragment StoreEntitySet="RCS_MEMBER">
+          <ScalarProperty Name="DELETE_TIME" ColumnName="DELETE_TIME" />
+          <ScalarProperty Name="DELETE_BY" ColumnName="DELETE_BY" />
+          <ScalarProperty Name="IS_DELETED" ColumnName="IS_DELETED" />
+          <ScalarProperty Name="MODIFY_TIME" ColumnName="MODIFY_TIME" />
+          <ScalarProperty Name="MODIFY_BY" ColumnName="MODIFY_BY" />
+          <ScalarProperty Name="CREATE_TIME" ColumnName="CREATE_TIME" />
+          <ScalarProperty Name="CREATE_BY" ColumnName="CREATE_BY" />
+          <ScalarProperty Name="IS_ACTIVED" ColumnName="IS_ACTIVED" />
+          <ScalarProperty Name="REMARK" ColumnName="REMARK" />
+          <ScalarProperty Name="MEMBER_NAME" ColumnName="MEMBER_NAME" />
+          <ScalarProperty Name="MEETING_AUTO_ID" ColumnName="MEETING_AUTO_ID" />
+          <ScalarProperty Name="AUTO_GUID" ColumnName="AUTO_GUID" />
+          <ScalarProperty Name="AUTO_ID" ColumnName="AUTO_ID" />
+        </MappingFragment>
+      </EntityTypeMapping>
+    </EntitySetMapping>
+  </EntityContainerMapping>
+</Mapping>

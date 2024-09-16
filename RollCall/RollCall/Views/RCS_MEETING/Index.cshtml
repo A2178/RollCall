@@ -1,0 +1,88 @@
+﻿@model RollCall.Models.MeetingViewModel
+
+@{
+    ViewBag.Title = "Index";
+}
+
+<link rel="stylesheet" href="~/Content/BackendStyle.css">
+@using (Html.BeginForm("Create", "RCS_MEETING", FormMethod.Post, new { enctype = "multipart/form-data" }))
+{
+    @Html.AntiForgeryToken()
+    <div style="margin-top:20px;">
+        <div class="form-group">
+            @Html.Label("會議名稱", htmlAttributes: new { @class = "control-label mr-2" })
+            @Html.EditorFor(model => model.NewMeeting.MEETING_NAME, new { htmlAttributes = new { @class = "form-control mr-4", @placeholder = "輸入會議名稱" } })
+            @Html.ValidationMessageFor(model => model.NewMeeting.MEETING_NAME, "", new { @class = "text-danger" })
+        </div>
+
+        <div class="form-group">
+            @Html.Label("開始時間", htmlAttributes: new { @class = "control-label mr-2" })
+            @Html.EditorFor(model => model.NewMeeting.MEETING_START, new { htmlAttributes = new { @class = "form-control mr-4", @type = "datetime-local" } })
+            @Html.ValidationMessageFor(model => model.NewMeeting.MEETING_START, "", new { @class = "text-danger" })
+        </div>
+
+        <div class="form-group">
+            @Html.Label("結束時間", htmlAttributes: new { @class = "control-label mr-2" })
+            @Html.EditorFor(model => model.NewMeeting.MEETING_END, new { htmlAttributes = new { @class = "form-control mr-4", @type = "datetime-local" } })
+            @Html.ValidationMessageFor(model => model.NewMeeting.MEETING_END, "", new { @class = "text-danger" })
+        </div> <!-- Excel Upload Button -->
+        <div class="form-group">
+            <!-- Excel Upload Button - 隱藏 input 並以自定義按鈕顯示 -->
+            <label class="btn btn-secondary btn-sm mr-4" style="margin-bottom: 0; margin-right:8px;">
+                人員名單Excel
+                <input type="file" name="ExcelFile" accept=".xlsx, .xls" />
+            </label>
+
+            <!-- Create Meeting Button -->
+            <button type="submit" class="btn btn-primary btn-sm">建立會議</button>
+        </div>
+    </div>
+}
+<table class="table">
+    <thead>
+        <tr>
+            <th>No.</th>
+            <th>會議名稱</th>
+            <th>開始時間</th>
+            <th>結束時間</th>
+            <th>人員名單下載</th>
+            <th>會議連結</th>
+            <th>抽籤記錄下載</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        @foreach (var meeting in Model.MeetingList)
+        {
+            <tr>
+                <td>@meeting.AUTO_ID</td>
+                <td>@meeting.MEETING_NAME</td>
+                <td>@meeting.MEETING_START</td>
+                <td>@meeting.MEETING_END</td>
+
+                <!-- 人員名單下載按鈕 -->
+                <td>
+                    <!-- 調整為使用 AUTO_GUID 產生人員名單下載按鈕 -->
+                    <a href="@Url.Action("DownloadMemberList", "RCS_MEETING", new { guid = meeting.AUTO_GUID })" class="btn btn-primary">
+                        人員名單
+                    </a>
+                </td>
+
+                <!-- 會議連結按鈕 -->
+                <td>
+                    <a href="@Url.Action("DownloadMeetingLink", "RCS_MEETING", new { guid = meeting.AUTO_GUID })" class="btn btn-primary">
+                        會議連結
+                    </a>
+                </td>
+
+                <!-- 抽籤紀錄按鈕 -->
+                <td>
+                    <a href="@Url.Action("DownloadRaffleLog", "RCS_MEETING", new { meetingGuid = meeting.AUTO_GUID })" class="btn btn-primary">
+                        抽籤紀錄
+                    </a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+

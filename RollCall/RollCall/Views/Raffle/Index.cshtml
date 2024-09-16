@@ -1,0 +1,96 @@
+﻿@model RollCall.Models.RaffleViewModel
+
+<h2>會議抽籤</h2>
+
+<!-- 顯示會議資訊 -->
+<div class="meeting-info">
+    <p><strong>會議名稱：</strong> @Model.MeetingName</p>
+    <p><strong>開始時間：</strong> @Model.MeetingStart</p>
+    <p><strong>結束時間：</strong> @Model.MeetingEnd</p>
+    <p><strong>當下時間：</strong> @Model.CurrentTime</p>
+</div>
+
+<!-- 顯示當前抽到的成員名稱 -->
+<div style="text-align: center; margin-top: 100px;">
+    <!-- 如果有 TempData["SelectedMemberName"]，則顯示抽中的成員名稱 -->
+    <h1 id="selected-member-name" style="font-size: 72px;">
+        @(TempData["SelectedMemberName"] != null ? TempData["SelectedMemberName"].ToString() : "按下抽籤開始...")
+    </h1>
+</div>
+
+<!-- 固定抽籤按鈕的位置，位於頁面底部 -->
+<div style="position: fixed; bottom: 20px; width: 100%; text-align: center;">
+    @using (Html.BeginForm("Draw", "Raffle", FormMethod.Post, new { id = "raffleForm" }))
+    {<!-- 將會議 GUID 作為隱藏欄位傳遞 -->
+        <input type="hidden" name="guid" value="@Model.MeetingGuid" />
+
+        <div style="display: inline-block; margin-right: 10px;">
+            <!-- 在抽籤按鈕左邊顯示當前回合數 -->
+            <p><strong>回合數：</strong> @TempData["CurrentRound"]</p>
+        </div>
+
+        <button type="button" id="raffleButton" class="btn btn-primary" style="font-size: 24px;">抽籤</button>
+        <button type="submit" id="stopButton" class="btn btn-danger" style="font-size: 24px; display:none;">停止抽籤</button>}
+</div>
+
+<!-- 用來在頁面上隨機滾動顯示成員名稱 -->
+@section Scripts {
+    <script type="text/javascript">
+        var interval;
+        var memberNames = @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(Model.Members.Select(m => m.MEMBER_NAME).ToList()));
+        var lastSelectedMember = null;  // 儲存最終抽到的成員
+        console.log("成員列表: ", memberNames);
+
+        $(document).ready(function () {
+        // 檢查是否所有成員都已抽取完畢，並彈出提示框
+        var allDrawn = @(TempData["AllDrawn"] != null ? TempData["AllDrawn"].ToString().ToLower() : "false");
+        console.log("TempData['AllDrawn'] 的值: " + allDrawn);
+
+        if (allDrawn === true) {
+            console.log('所有成員都已抽取完畢');
+            window.alert('名單已經全部抽過');
+        } else {
+            console.log('成員仍在抽取');
+        }
+        });
+
+        // 開始隨機滾動顯示成員名稱
+        function startRaffle() {
+            if (memberNames.length === 0) {
+                window.alert('無成員可以顯示');
+                return;
+            }
+
+            console.log('開始滾動成員名稱...');
+
+            // 禁止表單自動提交
+            document.getElementById('raffleForm').onsubmit = function (e) {
+                e.preventDefault();
+            };
+
+            // 切換按鈕顯示狀態
+            document.getElementById('raffleButton').style.display = 'none';
+            document.getElementById('stopButton').style.display = 'inline-block';
+
+            // 開始滾動
+            interval = setInterval(function () {
+                var randomMember = memberNames[Math.floor(Math.random() * memberNames.length)];
+                document.getElementById('selected-member-name').innerText = randomMember;
+                lastSelectedMember = randomMember;  // 保存最後顯示的成員名稱
+                console.log('顯示成員: ' + randomMember);
+            }, 30);  // 每 30 毫秒更新一次
+        }
+
+        // 停止滾動並提交表單
+        document.getElementById('stopButton').addEventListener('click', function () {
+            clearInterval(interval);  // 停止滾動
+            document.getElementById('selected-member-name').innerText = lastSelectedMember;  // 顯示最後抽到的成員名稱
+            document.getElementById('raffleForm').submit();  // 手動觸發表單提交
+        });
+
+        // 點擊按鈕啟動滾動效果
+        document.getElementById('raffleButton').addEventListener('click', function () {
+            startRaffle();
+        });
+    </script>
+}
