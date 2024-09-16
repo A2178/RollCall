@@ -1,5 +1,9 @@
 ﻿@model RollCall.Models.RaffleViewModel
 
+@{
+    ViewBag.Title = "Index";
+}
+
 <h2>會議抽籤</h2>
 
 <!-- 顯示會議資訊 -->
@@ -40,8 +44,12 @@
         var memberNames = @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(Model.Members.Select(m => m.MEMBER_NAME).ToList()));
         var lastSelectedMember = null;  // 儲存最終抽到的成員
         console.log("成員列表: ", memberNames);
-
         $(document).ready(function () {
+            var TestAlertMessage = @(TempData["TestAlertMessage"] != null ? TempData["TestAlertMessage"].ToString().ToLower() : "false");
+            if (TestAlertMessage === true) {
+                console.log('測試時段');
+                window.alert('此為時段為系統測試，不列入抽簽紀錄');
+        }
         // 檢查是否所有成員都已抽取完畢，並彈出提示框
         var allDrawn = @(TempData["AllDrawn"] != null ? TempData["AllDrawn"].ToString().ToLower() : "false");
         console.log("TempData['AllDrawn'] 的值: " + allDrawn);
@@ -81,7 +89,6 @@
             }, 20);  // 每 20 毫秒更新一次
         }
 
-        // 停止滾動並提交表單
         document.getElementById('stopButton').addEventListener('click', function () {
             clearInterval(interval);  // 停止滾動
             document.getElementById('selected-member-name').innerText = lastSelectedMember;  // 顯示最後抽到的成員名稱

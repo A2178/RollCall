@@ -8,8 +8,8 @@
 @using (Html.BeginForm("Create", "RCS_MEETING", FormMethod.Post, new { enctype = "multipart/form-data" }))
 {
     @Html.AntiForgeryToken()
-    <div style="margin-top:20px;">
-        <div class="form-group">
+    <div style="margin-top: 20px; display: flex; padding: 12px; ">
+        <div class="form-group" >
             @Html.Label("會議名稱", htmlAttributes: new { @class = "control-label mr-2" })
             @Html.EditorFor(model => model.NewMeeting.MEETING_NAME, new { htmlAttributes = new { @class = "form-control mr-4", @placeholder = "輸入會議名稱" } })
             @Html.ValidationMessageFor(model => model.NewMeeting.MEETING_NAME, "", new { @class = "text-danger" })
@@ -71,7 +71,7 @@
                 <!-- 會議連結按鈕 -->
                 <td>
                     <a href="@Url.Action("DownloadMeetingLink", "RCS_MEETING", new { guid = meeting.AUTO_GUID })" class="btn btn-primary">
-                        會議連結
+                        下載連結
                     </a>
                 </td>
 

@@ -244,6 +244,7 @@
     <Content Include="Views\Shared\_Layout.cshtml" />
     <Content Include="Views\RCS_MEETING\Index.cshtml" />
     <Content Include="Views\Raffle\Index.cshtml" />
+    <Content Include="Views\Raffle\View.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />
