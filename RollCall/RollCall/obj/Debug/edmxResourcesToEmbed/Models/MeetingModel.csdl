@@ -71,6 +71,7 @@
     <Property Name="DELETE_TIME" Type="DateTime" Precision="7" />
     <NavigationProperty Name="RCS_CALL_LOG" Relationship="TEST_RollCall_Meeting_DBModel1.RCS_CALL_LOG_FK1" FromRole="RCS_MEMBER" ToRole="RCS_CALL_LOG" />
     <NavigationProperty Name="RCS_MEETING" Relationship="TEST_RollCall_Meeting_DBModel1.RCS_MEMBER_FK1" FromRole="RCS_MEMBER" ToRole="RCS_MEETING" />
+    <Property Name="GROUP_NAME" Type="String" Nullable="false" MaxLength="100" FixedLength="false" Unicode="true" />
   </EntityType>
   <Association Name="RCS_CALL_LOG_FK1">
     <End Type="TEST_RollCall_Meeting_DBModel1.RCS_MEMBER" Role="RCS_MEMBER" Multiplicity="1" />

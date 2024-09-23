@@ -1,0 +1,106 @@
+﻿@model IEnumerable<RollCall.Models.RCS_MEETING>
+
+@{
+    ViewBag.Title = "Index";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>Index</h2>
+
+<p>
+    @Html.ActionLink("Create New", "Create")
+</p>
+<table class="table">
+    <tr>
+        <th>
+            @Html.DisplayNameFor(model => model.AUTO_GUID)
+        </th>
+        <th>
+            @Html.DisplayNameFor(model => model.MEETING_NAME)
+        </th>
+        <th>
+            @Html.DisplayNameFor(model => model.MEETING_START)
+        </th>
+        <th>
+            @Html.DisplayNameFor(model => model.MEETING_END)
+        </th>
+        <th>
+            @Html.DisplayNameFor(model => model.REMARK)
+        </th>
+        <th>
+            @Html.DisplayNameFor(model => model.IS_ACTIVED)
+        </th>
+        <th>
+            @Html.DisplayNameFor(model => model.CREATE_BY)
+        </th>
+        <th>
+            @Html.DisplayNameFor(model => model.CREATE_TIME)
+        </th>
+        <th>
+            @Html.DisplayNameFor(model => model.MODIFY_BY)
+        </th>
+        <th>
+            @Html.DisplayNameFor(model => model.MODIFY_TIME)
+        </th>
+        <th>
+            @Html.DisplayNameFor(model => model.IS_DELETED)
+        </th>
+        <th>
+            @Html.DisplayNameFor(model => model.DELETE_BY)
+        </th>
+        <th>
+            @Html.DisplayNameFor(model => model.DELETE_TIME)
+        </th>
+        <th></th>
+    </tr>
+
+@foreach (var item in Model) {
+    <tr>
+        <td>
+            @Html.DisplayFor(modelItem => item.AUTO_GUID)
+        </td>
+        <td>
+            @Html.DisplayFor(modelItem => item.MEETING_NAME)
+        </td>
+        <td>
+            @Html.DisplayFor(modelItem => item.MEETING_START)
+        </td>
+        <td>
+            @Html.DisplayFor(modelItem => item.MEETING_END)
+        </td>
+        <td>
+            @Html.DisplayFor(modelItem => item.REMARK)
+        </td>
+        <td>
+            @Html.DisplayFor(modelItem => item.IS_ACTIVED)
+        </td>
+        <td>
+            @Html.DisplayFor(modelItem => item.CREATE_BY)
+        </td>
+        <td>
+            @Html.DisplayFor(modelItem => item.CREATE_TIME)
+        </td>
+        <td>
+            @Html.DisplayFor(modelItem => item.MODIFY_BY)
+        </td>
+        <td>
+            @Html.DisplayFor(modelItem => item.MODIFY_TIME)
+        </td>
+        <td>
+            @Html.DisplayFor(modelItem => item.IS_DELETED)
+        </td>
+        <td>
+            @Html.DisplayFor(modelItem => item.DELETE_BY)
+        </td>
+        <td>
+            @Html.DisplayFor(modelItem => item.DELETE_TIME)
+        </td>
+        <td>
+            @Html.ActionLink("Edit", "Edit", new { id=item.AUTO_ID }) |
+            @Html.ActionLink("Details", "Details", new { id=item.AUTO_ID }) |
+            @Html.ActionLink("Delete", "Delete", new { id=item.AUTO_ID })
+        </td>
+    </tr>
+}
+
+</table>

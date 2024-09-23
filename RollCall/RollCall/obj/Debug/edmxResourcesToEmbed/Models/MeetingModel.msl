@@ -43,6 +43,7 @@
     <EntitySetMapping Name="RCS_MEMBER">
       <EntityTypeMapping TypeName="TEST_RollCall_Meeting_DBModel1.RCS_MEMBER">
         <MappingFragment StoreEntitySet="RCS_MEMBER">
+          <ScalarProperty Name="GROUP_NAME" ColumnName="GROUP_NAME" />
           <ScalarProperty Name="DELETE_TIME" ColumnName="DELETE_TIME" />
           <ScalarProperty Name="DELETE_BY" ColumnName="DELETE_BY" />
           <ScalarProperty Name="IS_DELETED" ColumnName="IS_DELETED" />

@@ -64,6 +64,12 @@
     <Reference Include="Microsoft.IO.RecyclableMemoryStream, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.IO.RecyclableMemoryStream.3.0.0\lib\netstandard2.0\Microsoft.IO.RecyclableMemoryStream.dll</HintPath>
     </Reference>
+    <Reference Include="PagedList, Version=1.17.0.0, Culture=neutral, PublicKeyToken=abbb863e9397c5e1, processorArchitecture=MSIL">
+      <HintPath>..\packages\PagedList.1.17.0.0\lib\net40\PagedList.dll</HintPath>
+    </Reference>
+    <Reference Include="PagedList.Mvc, Version=4.5.0.0, Culture=neutral, PublicKeyToken=abbb863e9397c5e1, processorArchitecture=MSIL">
+      <HintPath>..\packages\PagedList.Mvc.4.5.0.0\lib\net40\PagedList.Mvc.dll</HintPath>
+    </Reference>
     <Reference Include="PresentationCore" />
     <Reference Include="System" />
     <Reference Include="System.Buffers, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
@@ -159,10 +165,10 @@
     <Compile Include="App_Start\RouteConfig.cs" />
     <Compile Include="Controllers\RaffleController.cs" />
     <Compile Include="Controllers\RCS_MEETINGController.cs" />
+    <Compile Include="Controllers\RCS_MEETING_TESTController.cs" />
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
-    <Compile Include="Models\CallLogViewModel.cs" />
     <Compile Include="Models\MeetingModel.Context.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
@@ -179,6 +185,7 @@
       <DependentUpon>MeetingModel.edmx</DependentUpon>
     </Compile>
     <Compile Include="Models\MeetingViewModel.cs" />
+    <Compile Include="Models\RaffleLogViewModel.cs" />
     <Compile Include="Models\RaffleViewModel.cs" />
     <Compile Include="Models\RCS_CALL_LOG.cs">
       <DependentUpon>MeetingModel.tt</DependentUpon>
@@ -197,6 +204,10 @@
     <Content Include="Content\bootstrap-theme.min.css" />
     <Content Include="Content\bootstrap.css" />
     <Content Include="Content\bootstrap.min.css" />
+    <Content Include="Content\images\logo.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Content\PagedList.css" />
     <Content Include="favicon.ico" />
     <Content Include="fonts\glyphicons-halflings-regular.svg" />
     <Content Include="Global.asax" />
@@ -220,6 +231,7 @@
     <Content Include="Models\MeetingModel.edmx.diagram">
       <DependentUpon>MeetingModel.edmx</DependentUpon>
     </Content>
+    <None Include="Properties\PublishProfiles\IISProfile.pubxml" />
     <None Include="Scripts\jquery-3.4.1.intellisense.js" />
     <Content Include="Scripts\jquery-3.4.1.js" />
     <Content Include="Scripts\jquery-3.4.1.min.js" />
@@ -244,7 +256,11 @@
     <Content Include="Views\Shared\_Layout.cshtml" />
     <Content Include="Views\RCS_MEETING\Index.cshtml" />
     <Content Include="Views\Raffle\Index.cshtml" />
-    <Content Include="Views\Raffle\View.cshtml" />
+    <Content Include="Views\RCS_MEETING_TEST\Create.cshtml" />
+    <Content Include="Views\RCS_MEETING_TEST\Delete.cshtml" />
+    <Content Include="Views\RCS_MEETING_TEST\Details.cshtml" />
+    <Content Include="Views\RCS_MEETING\Edit.cshtml" />
+    <Content Include="Views\RCS_MEETING_TEST\Index.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />

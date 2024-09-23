@@ -23,8 +23,8 @@ namespace RollCall.Models
         public long AUTO_ID { get; set; }
         public System.Guid AUTO_GUID { get; set; }
         public string MEETING_NAME { get; set; }
-        public System.DateTime MEETING_START { get; set; }
-        public System.DateTime MEETING_END { get; set; }
+        public System.DateTime? MEETING_START { get; set; }
+        public System.DateTime? MEETING_END { get; set; }
         public string REMARK { get; set; }
         public bool IS_ACTIVED { get; set; }
         public string CREATE_BY { get; set; }

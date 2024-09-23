@@ -49,6 +49,7 @@
           <Property Name="AUTO_ID" Type="bigint" StoreGeneratedPattern="Identity" Nullable="false" />
           <Property Name="AUTO_GUID" Type="uniqueidentifier" Nullable="false" />
           <Property Name="MEETING_AUTO_ID" Type="bigint" Nullable="false" />
+          <Property Name="GROUP_NAME" Type="nvarchar" MaxLength="100" Nullable="false" />
           <Property Name="MEMBER_NAME" Type="nvarchar" MaxLength="20" Nullable="false" />
           <Property Name="REMARK" Type="nvarchar(max)" />
           <Property Name="IS_ACTIVED" Type="bit" Nullable="false" />
@@ -172,6 +173,7 @@
           <Property Name="DELETE_TIME" Type="DateTime" Precision="7" />
           <NavigationProperty Name="RCS_CALL_LOG" Relationship="TEST_RollCall_Meeting_DBModel1.RCS_CALL_LOG_FK1" FromRole="RCS_MEMBER" ToRole="RCS_CALL_LOG" />
           <NavigationProperty Name="RCS_MEETING" Relationship="TEST_RollCall_Meeting_DBModel1.RCS_MEMBER_FK1" FromRole="RCS_MEMBER" ToRole="RCS_MEETING" />
+          <Property Name="GROUP_NAME" Type="String" Nullable="false" MaxLength="100" FixedLength="false" Unicode="true" />
         </EntityType>
         <Association Name="RCS_CALL_LOG_FK1">
           <End Type="TEST_RollCall_Meeting_DBModel1.RCS_MEMBER" Role="RCS_MEMBER" Multiplicity="1" />
@@ -245,6 +247,7 @@
           <EntitySetMapping Name="RCS_MEMBER">
             <EntityTypeMapping TypeName="TEST_RollCall_Meeting_DBModel1.RCS_MEMBER">
               <MappingFragment StoreEntitySet="RCS_MEMBER">
+                <ScalarProperty Name="GROUP_NAME" ColumnName="GROUP_NAME" />
                 <ScalarProperty Name="DELETE_TIME" ColumnName="DELETE_TIME" />
                 <ScalarProperty Name="DELETE_BY" ColumnName="DELETE_BY" />
                 <ScalarProperty Name="IS_DELETED" ColumnName="IS_DELETED" />

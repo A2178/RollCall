@@ -23,6 +23,7 @@ namespace RollCall.Models
         public long AUTO_ID { get; set; }
         public System.Guid AUTO_GUID { get; set; }
         public long MEETING_AUTO_ID { get; set; }
+        public string GROUP_NAME { get; set; }
         public string MEMBER_NAME { get; set; }
         public string REMARK { get; set; }
         public bool IS_ACTIVED { get; set; }

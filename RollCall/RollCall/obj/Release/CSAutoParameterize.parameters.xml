@@ -1,0 +1,9 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<parameters>
+  <parameter name="TEST_RollCallDBEntities-Web.config Connection String" description="TEST_RollCallDBEntities 應用程式在 web.config 中用來存取資料庫的連接字串。" defaultValue="metadata=res://*/Models.MeetingModel.csdl|res://*/Models.MeetingModel.ssdl|res://*/Models.MeetingModel.msl;provider=System.Data.SqlClient;provider connection string=&quot;data source=192.168.210.52;initial catalog=TEST_RollCallDB;persist security info=True;user id=IFREIGHT;password=IFREIGHT!;MultipleActiveResultSets=True;App=EntityFramework&quot;" tags="SqlConnectionString">
+    <parameterEntry kind="XmlFile" scope="D:\\SVN_TWN\\RollCall\\程式\\RollCall\\RollCall\\obj\\Release\\Package\\PackageTmp\\Web\.config$" match="/configuration/connectionStrings/add[@name='TEST_RollCallDBEntities']/@connectionString" />
+  </parameter>
+  <parameter name="MeetingModel-Web.config Connection String" description="MeetingModel 應用程式在 web.config 中用來存取資料庫的連接字串。" defaultValue="data source=192.168.210.52;initial catalog=TEST_RollCallDB;persist security info=True;user id=IFREIGHT;password=***********;MultipleActiveResultSets=True;App=EntityFramework" tags="SqlConnectionString">
+    <parameterEntry kind="XmlFile" scope="D:\\SVN_TWN\\RollCall\\程式\\RollCall\\RollCall\\obj\\Release\\Package\\PackageTmp\\Web\.config$" match="/configuration/connectionStrings/add[@name='MeetingModel']/@connectionString" />
+  </parameter>
+</parameters>

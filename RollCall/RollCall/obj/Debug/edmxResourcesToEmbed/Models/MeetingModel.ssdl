@@ -44,6 +44,7 @@
     <Property Name="AUTO_ID" Type="bigint" StoreGeneratedPattern="Identity" Nullable="false" />
     <Property Name="AUTO_GUID" Type="uniqueidentifier" Nullable="false" />
     <Property Name="MEETING_AUTO_ID" Type="bigint" Nullable="false" />
+    <Property Name="GROUP_NAME" Type="nvarchar" MaxLength="100" Nullable="false" />
     <Property Name="MEMBER_NAME" Type="nvarchar" MaxLength="20" Nullable="false" />
     <Property Name="REMARK" Type="nvarchar(max)" />
     <Property Name="IS_ACTIVED" Type="bit" Nullable="false" />
