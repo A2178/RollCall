@@ -32,6 +32,13 @@ namespace RollCall.Controllers
             // 從資料庫讀取會議列表
             IQueryable<RCS_MEETING> meetings = db.RCS_MEETING.AsQueryable();
 
+            //進入頁面時自動以今天0時0分作為搜尋條件
+            DateTime TodayStart = DateTime.Today;
+            if (TempData["SearchMeetingStart"] == null)
+            {
+                meetings = meetings.Where(m => m.MEETING_START >= TodayStart);
+            }
+
             // 如果有搜尋條件，根據會議名稱篩選
             if (!String.IsNullOrEmpty(search))
             {
@@ -66,60 +73,6 @@ namespace RollCall.Controllers
             };
 
             return View(viewModel);
-        }
-
-
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public ActionResult FilterMeetings(MeetingViewModel viewModel)
-        {
-            // 保存使用者的搜尋條件
-            TempData["SearchMeetingName"] = viewModel.SearchMeetingName;
-            TempData["SearchMeetingStart"] = viewModel.SearchMeetingStart;
-
-            // 重導到 PagedMeetings，並將篩選條件傳遞到新頁面
-            return RedirectToAction("PagedMeetings", new { page = 1 });
-        }
-
-
-        [HttpGet]
-        public ActionResult PagedMeetings(int? page, string search, string searchStart)
-        {
-            // 取得使用者的搜尋條件
-            int pageSize = 15;
-            int pageNumber = (page ?? 1);
-
-            IQueryable<RCS_MEETING> meetings = db.RCS_MEETING.AsQueryable();
-
-            // 名稱篩選
-            if (!string.IsNullOrEmpty(search))
-            {
-                meetings = meetings.Where(m => m.MEETING_NAME.Contains(search));
-            }
-
-            // 開始時間篩選
-            if (!string.IsNullOrEmpty(searchStart) && DateTime.TryParse(searchStart, out DateTime startTime))
-            {
-                meetings = meetings.Where(m => m.MEETING_START >= startTime);
-            }
-
-            // 依開始時間排序
-            meetings = meetings.OrderBy(m => m.MEETING_START);
-
-            // 分頁處理
-            IPagedList<RCS_MEETING> pagedMeetings = meetings.ToPagedList(pageNumber, pageSize);
-
-            // 傳遞資料給 ViewModel
-            MeetingViewModel viewModel = new MeetingViewModel
-            {
-                MeetingList = pagedMeetings,
-                NewMeeting = new RCS_MEETING(),
-                SearchMeetingName = search,   // 傳遞搜尋條件回View
-                SearchMeetingStart = searchStart
-            };
-
-            return View("Index", viewModel);
         }
 
         [HttpPost]
@@ -269,6 +222,78 @@ namespace RollCall.Controllers
             return RedirectToAction("Index");
         }
 
+        [HttpPost]
+        public ActionResult AddMember(long meetingId, string memberName, string groupName)
+        {
+            if (string.IsNullOrEmpty(memberName))
+            {
+                return Json(new { success = false, message = "成員名稱不可為空" });
+            }
+
+            if (string.IsNullOrEmpty(groupName))
+            {
+                groupName = "未分組";  // 如果未填寫分組，設置為默認的 "未分組"
+            }
+
+            // 確保成員不重複
+            var existingMember = db.RCS_MEMBER.FirstOrDefault(m => m.MEETING_AUTO_ID == meetingId && m.MEMBER_NAME == memberName && !m.IS_DELETED);
+            if (existingMember != null)
+            {
+                return Json(new { success = false, message = "該成員已經存在" });
+            }
+
+            // 新增成員
+            RCS_MEMBER newMember = new RCS_MEMBER
+            {
+                MEETING_AUTO_ID = meetingId,
+                MEMBER_NAME = memberName,
+                GROUP_NAME = groupName,
+                AUTO_GUID = Guid.NewGuid(),
+                CREATE_BY = "CurrentUser",  // 根據需求設置當前使用者
+                CREATE_TIME = DateTime.Now,
+                MODIFY_BY = "CurrentUser",  // 設置修改者
+                MODIFY_TIME = DateTime.Now,
+                IS_ACTIVED = true,
+                IS_DELETED = false
+            };
+
+            try
+            {
+                db.RCS_MEMBER.Add(newMember);
+                db.SaveChanges();
+                return Json(new { success = true });
+            }
+            catch (System.Data.Entity.Validation.DbEntityValidationException ex)
+            {
+                // 捕捉詳細的驗證錯誤
+                var errorMessages = ex.EntityValidationErrors
+                    .SelectMany(x => x.ValidationErrors)
+                    .Select(x => x.ErrorMessage);
+
+                var fullErrorMessage = string.Join("; ", errorMessages);
+                var exceptionMessage = string.Concat(ex.Message, " 驗證錯誤: ", fullErrorMessage);
+
+                return Json(new { success = false, message = exceptionMessage });
+            }
+        }
+
+
+
+        [HttpPost]
+        public ActionResult RemoveMember(long memberId)
+        {
+            var member = db.RCS_MEMBER.FirstOrDefault(m => m.AUTO_ID == memberId);
+            if (member == null)
+            {
+                return Json(new { success = false, message = "成員未找到" });
+            }
+
+            db.RCS_MEMBER.Remove(member);
+            db.SaveChanges();
+
+            return Json(new { success = true });
+        }
+
 
 
         [HttpGet]
@@ -304,13 +329,13 @@ namespace RollCall.Controllers
                 }
 
                 // 寫入成員名單
-                int maxRows = membersGroupedByGroupName.Max(g => g.Count()); // 找出最多成員的組
+                int maxRows = membersGroupedByGroupName.Max(g => g.Count()); // 找出最多成員的組來開excel表格空間，避免跑版
                 for (int row = 2; row <= maxRows + 1; row++) // +1 因為第1行是表頭
                 {
                     col = 1;
                     foreach (var group in membersGroupedByGroupName)
                     {
-                        var member = group.ElementAtOrDefault(row - 2); // 取成員，如果成員不夠多則返回null
+                        var member = group.ElementAtOrDefault(row - 2); // 查詢出會議成員
                         if (member != null)
                         {
                             worksheet.Cells[row, col].Value = member.MEMBER_NAME;
@@ -341,17 +366,70 @@ namespace RollCall.Controllers
                 return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
             }
 
-            // 使用 Where 和 FirstOrDefault 方法查找匹配的 AUTO_GUID
-            RCS_MEETING rCS_MEETING = db.RCS_MEETING.FirstOrDefault(m => m.AUTO_GUID == guid);
-
-            if (rCS_MEETING == null)
+            // 找到對應的會議
+            RCS_MEETING meeting = db.RCS_MEETING.FirstOrDefault(m => m.AUTO_GUID == guid);
+            if (meeting == null)
             {
                 return HttpNotFound();
             }
 
-            return View(rCS_MEETING);
+            // 獲取與該會議相關的所有成員
+            var meetingMembers = db.RCS_MEMBER
+                                   .Where(m => m.MEETING_AUTO_ID == meeting.AUTO_ID && !m.IS_DELETED)
+                                   .ToList() ?? new List<RCS_MEMBER>(); // 如果沒有成員，初始化為空集合
+
+            // 建立 MeetingEditViewModel 並傳遞到視圖
+            var viewModel = new MeetingEditViewModel
+            {
+                Meeting = meeting,
+                Members = meetingMembers // 確保集合被初始化，即使沒有成員
+            };
+
+            return View(viewModel);
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult Edit(MeetingEditViewModel viewModel)
+        {
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    // 取得原始的會議記錄
+                    var existingMeeting = db.RCS_MEETING.FirstOrDefault(m => m.AUTO_ID == viewModel.Meeting.AUTO_ID);
+                    if (existingMeeting == null)
+                    {
+                        return HttpNotFound();
+                    }
+
+                    // 更新會議資料
+                    existingMeeting.MEETING_NAME = viewModel.Meeting.MEETING_NAME;
+                    existingMeeting.MEETING_START = viewModel.Meeting.MEETING_START;
+                    existingMeeting.MEETING_END = viewModel.Meeting.MEETING_END;
+
+                    // 設定修改人和修改時間
+                    existingMeeting.MODIFY_BY = "CurrentUser";  // 根據需求設置當前用戶
+                    existingMeeting.MODIFY_TIME = DateTime.Now;
+
+                    db.Entry(existingMeeting).State = EntityState.Modified;
+                    db.SaveChanges();
+
+                    // 確保成員名單重新載入
+                    viewModel.Members = db.RCS_MEMBER.Where(m => m.MEETING_AUTO_ID == viewModel.Meeting.AUTO_ID).ToList();
+
+                    return RedirectToAction("Index");
+                }
+                catch (Exception ex)
+                {
+                    ModelState.AddModelError("", "儲存會議資料時發生錯誤：" + ex.Message);
+                }
+            }
+
+            // 如果發生錯誤，確保重新載入成員列表
+            viewModel.Members = db.RCS_MEMBER.Where(m => m.MEETING_AUTO_ID == viewModel.Meeting.AUTO_ID).ToList();
+            return View(viewModel);
+        }
 
         public ActionResult DownloadMeetingLink(Guid guid)
         {
@@ -433,6 +511,12 @@ namespace RollCall.Controllers
                 // 回傳 Excel 檔案，檔案名為 "抽籤紀錄_{會議名稱}.xlsx"
                 return File(fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"抽籤紀錄_{meetingName}_{CurrentTime}.xlsx");
             }
+        }
+
+        public ActionResult Index2()
+        {
+            // 故意製造異常
+            throw new Exception("測試異常");
         }
     }
 }

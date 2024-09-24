@@ -165,10 +165,10 @@
     <Compile Include="App_Start\RouteConfig.cs" />
     <Compile Include="Controllers\RaffleController.cs" />
     <Compile Include="Controllers\RCS_MEETINGController.cs" />
-    <Compile Include="Controllers\RCS_MEETING_TESTController.cs" />
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
+    <Compile Include="Models\MeetingEditViewModel.cs" />
     <Compile Include="Models\MeetingModel.Context.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
@@ -199,7 +199,6 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Content\BackendStyle.css" />
     <Content Include="Content\bootstrap-theme.css" />
     <Content Include="Content\bootstrap-theme.min.css" />
     <Content Include="Content\bootstrap.css" />
@@ -256,11 +255,7 @@
     <Content Include="Views\Shared\_Layout.cshtml" />
     <Content Include="Views\RCS_MEETING\Index.cshtml" />
     <Content Include="Views\Raffle\Index.cshtml" />
-    <Content Include="Views\RCS_MEETING_TEST\Create.cshtml" />
-    <Content Include="Views\RCS_MEETING_TEST\Delete.cshtml" />
-    <Content Include="Views\RCS_MEETING_TEST\Details.cshtml" />
     <Content Include="Views\RCS_MEETING\Edit.cshtml" />
-    <Content Include="Views\RCS_MEETING_TEST\Index.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />

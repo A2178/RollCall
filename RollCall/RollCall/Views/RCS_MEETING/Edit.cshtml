@@ -1,134 +1,100 @@
-﻿@model RollCall.Models.RCS_MEETING
+﻿@model RollCall.Models.MeetingEditViewModel
 
 @{
     ViewBag.Title = "Edit";
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
-<h2>Edit</h2>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
+<h2>編輯會議記錄</h2>
 
 @using (Html.BeginForm())
 {
     @Html.AntiForgeryToken()
-    
+
     <div class="form-horizontal">
-        <h4>RCS_MEETING</h4>
-        <hr />
         @Html.ValidationSummary(true, "", new { @class = "text-danger" })
-        @Html.HiddenFor(model => model.AUTO_ID)
 
+        @Html.HiddenFor(model => model.Meeting.AUTO_ID)
+        @Html.HiddenFor(model => model.Meeting.AUTO_GUID)
+
+        <!-- 會議名稱輸入框 -->
         <div class="form-group">
-            @Html.LabelFor(model => model.AUTO_GUID, htmlAttributes: new { @class = "control-label col-md-2" })
+            <p>會議名稱</p>
             <div class="col-md-10">
-                @Html.EditorFor(model => model.AUTO_GUID, new { htmlAttributes = new { @class = "form-control" } })
-                @Html.ValidationMessageFor(model => model.AUTO_GUID, "", new { @class = "text-danger" })
+                @Html.EditorFor(model => model.Meeting.MEETING_NAME, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.Meeting.MEETING_NAME, "", new { @class = "text-danger" })
             </div>
         </div>
 
+        <!-- 開始時間輸入框 -->
         <div class="form-group">
-            @Html.LabelFor(model => model.MEETING_NAME, htmlAttributes: new { @class = "control-label col-md-2" })
+            <p>開始時間</p>
             <div class="col-md-10">
-                @Html.EditorFor(model => model.MEETING_NAME, new { htmlAttributes = new { @class = "form-control" } })
-                @Html.ValidationMessageFor(model => model.MEETING_NAME, "", new { @class = "text-danger" })
+                <input type="text" id="meetingStartInput" class="form-control" name="Meeting.MEETING_START" value="@Model.Meeting.MEETING_START?.ToString(" yyyy-MM-dd HH:mm")" />
+                @Html.ValidationMessageFor(model => model.Meeting.MEETING_START, "", new { @class = "text-danger" })
             </div>
         </div>
 
+        <!-- 結束時間輸入框 -->
         <div class="form-group">
-            @Html.LabelFor(model => model.MEETING_START, htmlAttributes: new { @class = "control-label col-md-2" })
+            <p>結束時間</p>
             <div class="col-md-10">
-                @Html.EditorFor(model => model.MEETING_START, new { htmlAttributes = new { @class = "form-control" } })
-                @Html.ValidationMessageFor(model => model.MEETING_START, "", new { @class = "text-danger" })
+                <input type="text" id="meetingEndInput" class="form-control" name="Meeting.MEETING_END" value="@Model.Meeting.MEETING_END?.ToString(" yyyy-MM-dd HH:mm")" />
+                @Html.ValidationMessageFor(model => model.Meeting.MEETING_END, "", new { @class = "text-danger" })
             </div>
         </div>
 
-        <div class="form-group">
-            @Html.LabelFor(model => model.MEETING_END, htmlAttributes: new { @class = "control-label col-md-2" })
-            <div class="col-md-10">
-                @Html.EditorFor(model => model.MEETING_END, new { htmlAttributes = new { @class = "form-control" } })
-                @Html.ValidationMessageFor(model => model.MEETING_END, "", new { @class = "text-danger" })
-            </div>
+        <hr />
+
+        <!-- 人員名單部分 -->
+        <h4>與會人員名單</h4>
+
+        @if (Model.Members != null && Model.Members.Any())
+        {
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>成員名稱</th>
+                        <th>組別名稱</th> <!-- 新增分組名稱欄位 -->
+                        <th>動作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var member in Model.Members)
+                    {
+                        <tr>
+                            <td>@member.MEMBER_NAME</td>
+                            <td>@member.GROUP_NAME</td> <!-- 顯示分組名稱 -->
+                            <td>
+                                <button type="button" class="btn btn-danger" onclick="removeMember('@member.AUTO_ID')">刪除</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <p>目前沒有任何成員。</p>
+        }
+
+        <!-- 新增成員的表單 -->
+        <div class="form-group" style="padding:10px;">
+            <label for="newMemberName">新增成員</label>
+            <input type="text" id="newMemberName" class="form-control" placeholder="輸入成員名稱" />
+
+            <label for="newGroupName">新增分組</label> <!-- 新增分組輸入框 -->
+            <input type="text" id="newGroupName" class="form-control" placeholder="輸入分組名稱" />
+
+            <button type="button" class="btn btn-success" style="margin-top:10px;" onclick="addMember()">新增</button>
         </div>
 
-        <div class="form-group">
-            @Html.LabelFor(model => model.REMARK, htmlAttributes: new { @class = "control-label col-md-2" })
-            <div class="col-md-10">
-                @Html.EditorFor(model => model.REMARK, new { htmlAttributes = new { @class = "form-control" } })
-                @Html.ValidationMessageFor(model => model.REMARK, "", new { @class = "text-danger" })
-            </div>
-        </div>
-
-        <div class="form-group">
-            @Html.LabelFor(model => model.IS_ACTIVED, htmlAttributes: new { @class = "control-label col-md-2" })
-            <div class="col-md-10">
-                <div class="checkbox">
-                    @Html.EditorFor(model => model.IS_ACTIVED)
-                    @Html.ValidationMessageFor(model => model.IS_ACTIVED, "", new { @class = "text-danger" })
-                </div>
-            </div>
-        </div>
-
-        <div class="form-group">
-            @Html.LabelFor(model => model.CREATE_BY, htmlAttributes: new { @class = "control-label col-md-2" })
-            <div class="col-md-10">
-                @Html.EditorFor(model => model.CREATE_BY, new { htmlAttributes = new { @class = "form-control" } })
-                @Html.ValidationMessageFor(model => model.CREATE_BY, "", new { @class = "text-danger" })
-            </div>
-        </div>
-
-        <div class="form-group">
-            @Html.LabelFor(model => model.CREATE_TIME, htmlAttributes: new { @class = "control-label col-md-2" })
-            <div class="col-md-10">
-                @Html.EditorFor(model => model.CREATE_TIME, new { htmlAttributes = new { @class = "form-control" } })
-                @Html.ValidationMessageFor(model => model.CREATE_TIME, "", new { @class = "text-danger" })
-            </div>
-        </div>
-
-        <div class="form-group">
-            @Html.LabelFor(model => model.MODIFY_BY, htmlAttributes: new { @class = "control-label col-md-2" })
-            <div class="col-md-10">
-                @Html.EditorFor(model => model.MODIFY_BY, new { htmlAttributes = new { @class = "form-control" } })
-                @Html.ValidationMessageFor(model => model.MODIFY_BY, "", new { @class = "text-danger" })
-            </div>
-        </div>
-
-        <div class="form-group">
-            @Html.LabelFor(model => model.MODIFY_TIME, htmlAttributes: new { @class = "control-label col-md-2" })
-            <div class="col-md-10">
-                @Html.EditorFor(model => model.MODIFY_TIME, new { htmlAttributes = new { @class = "form-control" } })
-                @Html.ValidationMessageFor(model => model.MODIFY_TIME, "", new { @class = "text-danger" })
-            </div>
-        </div>
-
-        <div class="form-group">
-            @Html.LabelFor(model => model.IS_DELETED, htmlAttributes: new { @class = "control-label col-md-2" })
-            <div class="col-md-10">
-                <div class="checkbox">
-                    @Html.EditorFor(model => model.IS_DELETED)
-                    @Html.ValidationMessageFor(model => model.IS_DELETED, "", new { @class = "text-danger" })
-                </div>
-            </div>
-        </div>
-
-        <div class="form-group">
-            @Html.LabelFor(model => model.DELETE_BY, htmlAttributes: new { @class = "control-label col-md-2" })
-            <div class="col-md-10">
-                @Html.EditorFor(model => model.DELETE_BY, new { htmlAttributes = new { @class = "form-control" } })
-                @Html.ValidationMessageFor(model => model.DELETE_BY, "", new { @class = "text-danger" })
-            </div>
-        </div>
-
-        <div class="form-group">
-            @Html.LabelFor(model => model.DELETE_TIME, htmlAttributes: new { @class = "control-label col-md-2" })
-            <div class="col-md-10">
-                @Html.EditorFor(model => model.DELETE_TIME, new { htmlAttributes = new { @class = "form-control" } })
-                @Html.ValidationMessageFor(model => model.DELETE_TIME, "", new { @class = "text-danger" })
-            </div>
-        </div>
-
-        <div class="form-group">
+        <div class="form-group" style="margin-top:10px;">
             <div class="col-md-offset-2 col-md-10">
-                <input type="submit" value="Save" class="btn btn-default" />
+                <input type="submit" value="儲存會議" class="btn btn-primary" />
             </div>
         </div>
     </div>
@@ -140,4 +106,57 @@
 
 @section Scripts {
     @Scripts.Render("~/bundles/jqueryval")
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+    <script type="text/javascript">
+        document.addEventListener('DOMContentLoaded', function () {
+        var meetingStart = '@(Model.Meeting.MEETING_START.HasValue ? Model.Meeting.MEETING_START.Value.ToString("yyyy-MM-dd HH:mm") : "")';
+        var meetingEnd = '@(Model.Meeting.MEETING_END.HasValue ? Model.Meeting.MEETING_END.Value.ToString("yyyy-MM-dd HH:mm") : "")';
+
+        flatpickr("#meetingStartInput", {
+            enableTime: true,
+            time_24hr: true,
+            dateFormat: "Y-m-d H:i",
+            defaultDate: meetingStart
+        });
+
+        flatpickr("#meetingEndInput", {
+            enableTime: true,
+            time_24hr: true,
+            dateFormat: "Y-m-d H:i",
+            defaultDate: meetingEnd
+        });
+    });
+
+        // 刪除成員的功能
+        function removeMember(memberId) {
+            if (confirm("確定要刪除該成員嗎？")) {
+                $.post('@Url.Action("RemoveMember", "RCS_MEETING")', { memberId: memberId }, function (data) {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert("刪除失敗");
+                    }
+                });
+            }
+        }
+
+        // 新增成員的功能
+        function addMember() {
+            var memberName = $('#newMemberName').val();
+            var groupName = $('#newGroupName').val(); // 新增分組名稱
+
+            if (memberName) {
+                $.post('@Url.Action("AddMember", "RCS_MEETING")', { meetingId: '@Model.Meeting.AUTO_ID', memberName: memberName, groupName: groupName }, function (data) {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert("新增失敗");
+                    }
+                });
+            } else {
+                alert("請輸入成員名稱");
+            }
+        }
+    </script>
 }
