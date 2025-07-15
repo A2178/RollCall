@@ -1,0 +1,43 @@
+﻿@using (Html.BeginForm("Register", "Account", FormMethod.Post, new { @id = "registerForm" }))
+{
+    @Html.AntiForgeryToken()
+
+    <div class="form-group" style="margin-top:20px;">
+        <h3>帳號：</h3>
+        <input type="text" name="account" class="form-control" required />
+    </div>
+
+    <div class="form-group">
+        <h3>密碼：</h3>
+        <input type="password" name="password" class="form-control" required />
+    </div>
+
+    <div class="form-group">
+        <h3>使用者名稱：</h3>
+        <input type="text" name="userName" class="form-control" required />
+    </div>
+
+    <div class="form-group">
+        <h3>權限：</h3>
+        <input type="text" name="permission" class="form-control" required />
+    </div>
+
+    <button type="submit" class="btn btn-success">註冊</button>
+    <button type="button" class="btn btn-info" style="margin-left:50px;" onclick="redirectToLoginPage()">返回登入頁面</button>
+}
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            var RegisterError = '@ViewBag.RegisterError';
+            if (RegisterError) {
+                $('#alertModalBody').text(RegisterError);
+                $('#alertModal').modal('show');
+            }
+        });
+
+        function redirectToLoginPage() {
+            window.location.href = '@Url.Action("Login", "Account")';
+        }
+    </script>
+}

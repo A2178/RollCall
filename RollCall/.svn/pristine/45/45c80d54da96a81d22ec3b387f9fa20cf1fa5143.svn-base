@@ -1,0 +1,337 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Web;
+using System.Web.Mvc;
+using RollCall.Models;
+using Serilog;
+
+namespace RollCall.Controllers
+{
+    public class RaffleController : Controller
+    {
+        private TEST_RollCallDBEntities db = new TEST_RollCallDBEntities();
+
+        [HttpGet]
+        public ActionResult Index(Guid guid)
+        {
+            string RequestIp = Request.UserHostAddress;
+            string serverMachineName = Environment.MachineName;
+            string requestMethod = Request.HttpMethod;
+            string requestUrl = Request.Url?.AbsoluteUri;
+            string requestUserAgent = Request.UserAgent;
+            string RequestHost = Request.UserHostAddress;
+            string requestReferrer = Request.UrlReferrer?.ToString();
+            string workMachine = Request.Url?.Host + ":" + Request.Url?.Port;
+            string requestHeaders = string.Join("; ", Request.Headers.AllKeys.Select(key => key + ": " + Request.Headers[key]));
+
+            Log.Information("進入會議抽籤頁面, 會議Guid: {guid}", guid);
+
+            // 找到會議 (RCS_MEETING)
+            var meeting = db.RCS_MEETING.FirstOrDefault(m => m.AUTO_GUID == guid && !m.IS_DELETED);
+            if (meeting == null)
+            {
+                Log.Error("進入會議抽籤頁面失敗！找不到會議, 會議Guid: {guid}", guid);
+                return HttpNotFound("找不到會議");
+            }
+
+            // 自訂排序
+            List<string> customOrder = new List<string>
+            {
+                "PS.TPE", "PS.TXG", "PS.KHH",
+                "PC.TPE", "PC.TXG", "PC.KHH"
+            };
+
+            // 查詢本場會議下的所有 MEETING_GROUP
+            // 並根據自訂順序排序
+            var meetingGroups = db.RCS_MEETING_GROUP
+                .Where(mg => mg.MEETING_AUTO_ID == meeting.AUTO_ID && !mg.IS_DELETED)
+                .ToList()
+                .OrderBy(mg => {
+                    int idx = customOrder.IndexOf(mg.GROUP_NAME);
+                    return idx >= 0 ? idx : int.MaxValue;
+                })
+                .ToList();
+
+            // 查詢並組裝分組資料 (GroupName + Members(DTO))
+            var groupedRaffleViewModels = new List<GroupedRaffleViewModel>();
+
+            foreach (var mgEntity in meetingGroups)
+            {
+                // 先用 Join，從 RCS_MEMBER + RCS_EMPLOYEES 中取得 EMP_ID + EMP_NAME
+                // 由於 RCS_MEMBER 只存 EMP_AUTO_ID，若要顯示人名，需要跟 RCS_EMPLOYEES.Join
+                var memberDtos = (
+                    from mem in db.RCS_MEMBER
+                    join emp in db.RCS_EMPLOYEES on mem.EMP_AUTO_ID equals emp.AUTO_ID
+                    where mem.MEETING_GROUP_AUTO_ID == mgEntity.AUTO_ID
+                          && !mem.IS_DELETED
+                          && !emp.IS_DELETED
+                    select new RaffleMemberDto
+                    {
+                        EmpId = mem.EMP_AUTO_ID,
+                        EmpName = emp.EMP_NAME
+                    }
+                ).ToList();
+
+                // 建立 GroupedRaffleViewModel
+                groupedRaffleViewModels.Add(new GroupedRaffleViewModel
+                {
+                    GroupName = mgEntity.GROUP_NAME,
+                    Members = memberDtos  // List<RaffleMemberDto>
+                });
+            }
+
+            // 判斷是否處於測試時段
+            bool isTestPeriod = (DateTime.Now < meeting.MEETING_START);
+
+            // 建立 RaffleViewModel
+            var viewModel = new RaffleViewModel
+            {
+                MeetingName = meeting.MEETING_NAME,
+                MeetingStart = meeting.MEETING_START,
+                MeetingEnd = meeting.MEETING_END,
+                CurrentTime = DateTime.Now,
+                MeetingGuid = meeting.AUTO_GUID,
+                GroupedMembers = groupedRaffleViewModels,
+                IsTestPeriod = isTestPeriod
+            };
+
+            // 初始化回合數(TempData)
+            foreach (var groupView in groupedRaffleViewModels)
+            {
+                int currentRound = 0;
+                if (isTestPeriod)
+                {
+                    TempData[$"CurrentRound_{groupView.GroupName}"] = 0;
+                }
+                else
+                {
+                    // 找對應 mgEntity
+                    var mgEntity = meetingGroups.FirstOrDefault(x => x.GROUP_NAME == groupView.GroupName);
+                    if (mgEntity != null)
+                    {
+                        currentRound = db.RCS_CALL_LOG
+                            .Where(c => c.MEETING_GROUP_AUTO_ID == mgEntity.AUTO_ID && c.ROUND > 0)
+                            .Select(c => c.ROUND)
+                            .DefaultIfEmpty(1)
+                            .Max();
+                    }
+                    TempData[$"CurrentRound_{groupView.GroupName}"] = currentRound;
+                }
+            }
+
+            Log.Information("進入會議抽籤頁面結束, 會議Guid: {guid}", guid);
+            return View(viewModel);
+        }
+
+
+
+        public ActionResult Draw(Guid guid, string groupName, string selectedMember)
+        {
+            Log.Information("會議抽籤, 會議Guid: {guid}, 組別名稱: {groupName}, 前端指定成員: {selectedMember}",
+                guid, groupName, selectedMember);
+
+            // 找會議
+            var meeting = db.RCS_MEETING.FirstOrDefault(m => m.AUTO_GUID == guid && !m.IS_DELETED);
+            if (meeting == null)
+            {
+                Log.Error("會議抽籤失敗！找不到會議, 會議Guid: {guid}, groupName: {groupName}, member: {selectedMember}",
+                    guid, groupName, selectedMember);
+                return HttpNotFound("找不到會議");
+            }
+
+            // 找 RCS_MEETING_GROUP
+            var mgEntity = db.RCS_MEETING_GROUP
+                .FirstOrDefault(mg => mg.MEETING_AUTO_ID == meeting.AUTO_ID
+                                   && mg.GROUP_NAME == groupName
+                                   && !mg.IS_DELETED);
+            if (mgEntity == null)
+            {
+                return Json(new { success = false, message = $"找不到對應會議群組: {groupName}" });
+            }
+
+            // 全部成員(EMP_AUTO_ID) in 這個群組
+            // 若 EMP_AUTO_ID 是 long? 請注意 cast => .Select(m => m.EMP_AUTO_ID.Value)
+            // 如果確定不為 null => DB schema: BIGINT NOT NULL => Model: long
+            var allEmpIdsInGroup = db.RCS_MEMBER
+                .Where(m => m.MEETING_GROUP_AUTO_ID == mgEntity.AUTO_ID && !m.IS_DELETED)
+                .Select(m => m.EMP_AUTO_ID)
+                .ToList();
+
+            // 取得當前時間、回合數
+            int currentRound;
+            bool isTestPeriod = (DateTime.Now < meeting.MEETING_START);
+
+            // 已抽名單
+            var alreadyDrawnInCurrentRound = new List<long>();
+
+            if (isTestPeriod)
+            {
+                // 測試時段
+                currentRound = db.RCS_CALL_LOG
+                    .Where(c => c.MEETING_GROUP_AUTO_ID == mgEntity.AUTO_ID && c.ROUND < 0)
+                    .Select(c => c.ROUND)
+                    .DefaultIfEmpty(0)
+                    .Min();
+                if (currentRound == 0)
+                    currentRound = -1;
+
+                alreadyDrawnInCurrentRound = db.RCS_CALL_LOG
+                    .Where(c => c.MEETING_GROUP_AUTO_ID == mgEntity.AUTO_ID && c.ROUND == currentRound)
+                    .Select(c => c.EMP_AUTO_ID)
+                    .ToList();
+
+                // 檢查是否已抽完
+                if (alreadyDrawnInCurrentRound.Count == allEmpIdsInGroup.Count)
+                {
+                    currentRound--;
+                    alreadyDrawnInCurrentRound.Clear();
+                }
+            }
+            else
+            {
+                // 正式時段
+                currentRound = db.RCS_CALL_LOG
+                    .Where(c => c.MEETING_GROUP_AUTO_ID == mgEntity.AUTO_ID && c.ROUND > 0)
+                    .Select(c => c.ROUND)
+                    .DefaultIfEmpty(1)
+                    .Max();
+
+                alreadyDrawnInCurrentRound = db.RCS_CALL_LOG
+                    .Where(c => c.MEETING_GROUP_AUTO_ID == mgEntity.AUTO_ID && c.ROUND == currentRound)
+                    .Select(c => c.EMP_AUTO_ID)
+                    .ToList();
+
+                // 檢查是否已抽完
+                if (alreadyDrawnInCurrentRound.Count == allEmpIdsInGroup.Count)
+                {
+                    currentRound++;
+                    alreadyDrawnInCurrentRound.Clear();
+                }
+            }
+
+            //    找出尚未在本回合被抽到的 RCS_MEMBER
+            //    => EMP_AUTO_ID 不在 alreadyDrawnInCurrentRound
+            //    => !IS_DELETED
+            var remainingMembers = db.RCS_MEMBER
+                .Where(m => m.MEETING_GROUP_AUTO_ID == mgEntity.AUTO_ID
+                         && !m.IS_DELETED
+                         && !alreadyDrawnInCurrentRound.Contains(m.EMP_AUTO_ID))
+                .ToList();
+            if (!remainingMembers.Any())
+            {
+                // 全部都抽完回傳 lastDrawnMember
+                var lastDrawnEmpId = db.RCS_CALL_LOG
+                    .Where(c => c.MEETING_GROUP_AUTO_ID == mgEntity.AUTO_ID && c.ROUND == currentRound)
+                    .OrderByDescending(c => c.CREATE_TIME)
+                    .Select(c => c.EMP_AUTO_ID)
+                    .FirstOrDefault();
+
+                // 再找員工姓名
+                var lastDrawnEmpName = (lastDrawnEmpId == 0)
+                    ? null
+                    : db.RCS_EMPLOYEES
+                        .Where(e => e.AUTO_ID == lastDrawnEmpId && !e.IS_DELETED)
+                        .Select(e => e.EMP_NAME)
+                        .FirstOrDefault();
+
+                return Json(new
+                {
+                    success = false,
+                    message = $"{groupName} 無成員可以顯示，已抽取完畢！",
+                    allDrawn = true,
+                    currentRound,
+                    lastDrawnMember = lastDrawnEmpName
+                });
+            }
+
+            //    先透過 Join 找對應 RCS_MEMBER
+            //    "selectedMember" = 員工姓名 => RCS_EMPLOYEES.EMP_NAME
+            //    join RCS_MEMBER => RCS_EMPLOYEES 來找 EMP_AUTO_ID
+            long? selectedEmpId = null;
+            if (!string.IsNullOrEmpty(selectedMember))
+            {
+                selectedEmpId = (from m in remainingMembers
+                                 join emp in db.RCS_EMPLOYEES on m.EMP_AUTO_ID equals emp.AUTO_ID
+                                 where emp.EMP_NAME == selectedMember && !emp.IS_DELETED
+                                 select (long?)m.EMP_AUTO_ID
+                                ).FirstOrDefault();
+            }
+
+            RCS_MEMBER selectedMemberEntity = null;
+            if (selectedEmpId.HasValue)
+            {
+                selectedMemberEntity = remainingMembers
+                    .FirstOrDefault(m => m.EMP_AUTO_ID == selectedEmpId.Value);
+            }
+            if (selectedMemberEntity == null)
+            {
+                // 隨機抽
+                Random random = new Random();
+                selectedMemberEntity = remainingMembers[random.Next(remainingMembers.Count)];
+            }
+
+            // 檢查是否已抽過 (EMP_AUTO_ID + round)
+            var existingLog = db.RCS_CALL_LOG
+                .FirstOrDefault(log => log.MEETING_GROUP_AUTO_ID == mgEntity.AUTO_ID
+                                    && log.EMP_AUTO_ID == selectedMemberEntity.EMP_AUTO_ID
+                                    && log.ROUND == currentRound);
+            if (existingLog != null)
+            {
+                // 查員工姓名
+                var empName = db.RCS_EMPLOYEES
+                    .Where(e => e.AUTO_ID == selectedMemberEntity.EMP_AUTO_ID && !e.IS_DELETED)
+                    .Select(e => e.EMP_NAME)
+                    .FirstOrDefault();
+
+                return Json(new
+                {
+                    success = false,
+                    message = $"成員 {empName} 已經在回合 {currentRound} 被抽取過",
+                    allDrawn = false
+                });
+            }
+
+            // 新增 callLog
+            RCS_CALL_LOG callLog = new RCS_CALL_LOG
+            {
+                EMP_AUTO_ID = selectedMemberEntity.EMP_AUTO_ID,
+                MEETING_GROUP_AUTO_ID = mgEntity.AUTO_ID,
+                ROUND = currentRound,
+
+                AUTO_GUID = Guid.NewGuid(),
+                CREATE_BY = Session["Permission"]?.ToString() ?? "System",
+                CREATE_TIME = DateTime.Now,
+                MODIFY_BY = Session["Permission"]?.ToString() ?? "System",
+                MODIFY_TIME = DateTime.Now,
+                IS_ACTIVED = true,
+                IS_DELETED = false
+            };
+            db.RCS_CALL_LOG.Add(callLog);
+            db.SaveChanges();
+
+            // 拿到員工姓名
+            var selectedEmpName = db.RCS_EMPLOYEES
+                .Where(e => e.AUTO_ID == selectedMemberEntity.EMP_AUTO_ID && !e.IS_DELETED)
+                .Select(e => e.EMP_NAME)
+                .FirstOrDefault();
+
+            // 更新 "已抽名單"
+            alreadyDrawnInCurrentRound.Add(selectedMemberEntity.EMP_AUTO_ID);
+            bool allDrawn = (alreadyDrawnInCurrentRound.Count == allEmpIdsInGroup.Count);
+
+            Log.Information("會議抽籤結束, 會議Guid: {guid}, 組別名稱: {groupName}, 抽中的EmpID: {empId}, EmpName: {empName}",
+                guid, groupName, selectedMemberEntity.EMP_AUTO_ID, selectedEmpName);
+
+            return Json(new
+            {
+                success = true,
+                selectedMember = selectedEmpName,
+                currentRound = currentRound,
+                allDrawn = allDrawn,
+                lastDrawnMember = selectedEmpName
+            });
+        }
+    }
+}

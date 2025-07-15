@@ -1,0 +1,73 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.Web.Mvc;
+using System.Web.Optimization;
+using System.Web.Routing;
+using Serilog;
+
+namespace RollCall
+{
+    public class MvcApplication : System.Web.HttpApplication
+    {
+        public class GlobalExceptionFilter : IExceptionFilter
+        {
+            public void OnException(ExceptionContext filterContext)
+            {
+                Exception exception = filterContext.Exception;
+
+                Log.Error(exception, "應用程式發生錯誤");
+
+                filterContext.ExceptionHandled = true;
+
+                filterContext.Result = new RedirectToRouteResult(
+                    new RouteValueDictionary(new { controller = "RCS_MEETING", action = "Error" })
+                );
+            }
+        }
+
+        protected void Application_Start()
+        {
+            //GlobalFilters.Filters.Add(new GlobalExceptionFilter());
+            AreaRegistration.RegisterAllAreas();
+            FilterConfig.RegisterGlobalFilters(GlobalFilters.Filters);
+            RouteConfig.RegisterRoutes(RouteTable.Routes);
+            BundleConfig.RegisterBundles(BundleTable.Bundles);
+        }
+        protected void Application_End()
+        {
+            Log.Information("應用程式即將關閉");
+            Log.CloseAndFlush();
+        }
+
+        protected void Application_PreRequestHandlerExecute(object sender, EventArgs e)
+        {    
+            HttpRequest request = HttpContext.Current.Request;
+            string requestIp = request.UserHostAddress;
+            string serverMachineName = Environment.MachineName;
+            string requestMethod = request.HttpMethod;
+            string requestUrl = request.Url?.AbsoluteUri;
+            string requestUserAgent = request.UserAgent;
+            string requestHost = request.UserHostAddress;
+            string requestReferrer = request.UrlReferrer != null ? request.UrlReferrer.ToString() : string.Empty;
+            string workMachine = request.Url != null ? request.Url.Host + ":" + request.Url.Port : string.Empty;
+            string requestHeaders = string.Join("; ", request.Headers.AllKeys.Select(key => key + ": " + request.Headers[key]));
+
+            Log.Logger = new LoggerConfiguration()
+                .Enrich.WithThreadId()
+                .Enrich.FromLogContext()
+                .WriteTo.Seq("http://192.168.210.54:5341", apiKey: "rYo7s6icQ11MGon0sKEa")
+                .CreateLogger()
+                .ForContext("RequestHost", requestHost)
+                .ForContext("RequestIp", requestIp)
+                .ForContext("MachineName", serverMachineName)
+                .ForContext("RequestMethod", requestMethod)
+                .ForContext("RequestUrl", requestUrl)
+                .ForContext("RequestReferrer", requestReferrer)
+                .ForContext("RequestUserAgent", requestUserAgent)
+                .ForContext("RequestHeaders", requestHeaders)
+                .ForContext("Machine", workMachine);
+        }
+    }
+}

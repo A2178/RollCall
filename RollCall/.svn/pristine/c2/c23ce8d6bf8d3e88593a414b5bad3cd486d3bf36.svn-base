@@ -1,0 +1,139 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    @Scripts.Render("~/bundles/modernizr")
+    @Styles.Render("~/Content/css")
+    <style>
+        html, body {
+            height: 100%;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            margin: 0;
+        }
+
+        .body-content {
+            flex: 1;
+            padding-bottom: 50px; /* 增加底部間距，避免內容被footer遮擋 */
+        }
+
+        footer {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background-color: #f8f9fa;
+            padding: 10px 0;
+            text-align: right; /* 使footer文字靠右 */
+        }
+
+        /* 修改 navbar-custom 底色為 #d2e9ff */
+        .navbar-custom {
+            background-color: #d2e9ff !important;
+        }
+
+        /* 設定 header 文字顏色為 #333333 */
+        .navbar-brand {
+            color: #333333 !important;
+        }
+
+        .container {
+            width: 1600px;
+            padding-left: 0px;
+        }
+
+        /* 調整所有 modal 標題的字體大小 */
+        .modal-title {
+            font-size: 24px;
+        }
+
+        /* 調整 modal 內容文字的字體大小 */
+        .modal-body {
+            font-size: 24px;
+        }
+
+        /* 調整 modal 按鈕文字的字體大小 */
+        .modal-footer .btn {
+            font-size: 24px;
+        }
+    </style>
+    <link rel="shortcut icon" href="~/Content/images/favicon.png" type="image/x-icon" />
+    <link rel="icon" href="~/Content/images/favicon.png" type="image/x-icon" />
+</head>
+<body>
+    <div class="navbar navbar-custom navbar-fixed-top">
+        <div class="container">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <img src="~/Content/images/logo.png" alt="Logo" style="float: left; height: 40px; margin-right: 10px; margin-top:5px;" />
+                <span class="navbar-brand" style="display: inline-block; font-weight: bold; font-size:24px;">抽籤系統</span>
+            </div>
+            <div class="navbar-collapse collapse">
+                <ul class="nav navbar-nav">
+                </ul>
+            </div>
+        </div>
+    </div>
+    <!-- Modal結構 -->
+    <div class="modal fade" id="alertModal" tabindex="-1" role="dialog" aria-labelledby="alertModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="alertModalLabel">提示</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body" id="alertModalBody">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-dismiss="modal">確定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 刪除確認Modal -->
+    <div class="modal fade" id="confirmDeleteModal" tabindex="-1" role="dialog" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="confirmDeleteModalLabel">確認刪除</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    你確定要刪除此成員嗎？
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn">刪除</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="container body-content">
+        @RenderBody()
+        <hr />
+    </div>
+
+    <footer>
+        <p style="margin-right: 40px;">Pacific Star Group © @DateTime.Now.Year - 抽籤系統</p>
+    </footer>
+
+    @Scripts.Render("~/bundles/jquery")
+    @Scripts.Render("~/bundles/bootstrap")
+    @RenderSection("scripts", required: false)
+</body>
+</html>

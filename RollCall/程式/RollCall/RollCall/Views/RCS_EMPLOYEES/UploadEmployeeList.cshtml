@@ -1,0 +1,13 @@
+﻿@using (Html.BeginForm("UploadEmployeeList", "RCS_EMPLOYEES", FormMethod.Post, new { enctype = "multipart/form-data", id = "uploadForm" }))
+{
+    @Html.AntiForgeryToken()
+
+<div class="form-group">
+    <label for="file">選擇 Excel 檔案：</label>
+    <input type="file" id="file" name="file" class="form-control" accept=".xls,.xlsx" required />
+    <h3>如果您需要使用此功能，請確保您上傳的Excel檔案中表頭(名稱需要完全一樣)有以下幾個欄位：</h3>
+    <h4>姓名、部門、職位、員工編號、分部(如缺少分部可直接複製"職位"欄，並且第一行表頭打上"分部")</h4>
+</div>
+
+    <button type="submit" class="btn btn-primary">上傳名冊</button>
+}

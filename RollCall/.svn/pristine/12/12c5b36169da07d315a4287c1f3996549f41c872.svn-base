@@ -1,0 +1,11 @@
+﻿@using (Html.BeginForm("UploadEmployeeList", "RCS_EMPLOYEES", FormMethod.Post, new { enctype = "multipart/form-data", id = "uploadForm" }))
+{
+    @Html.AntiForgeryToken()
+
+    <div class="form-group">
+        <label for="file">選擇 Excel 檔案：</label>
+        <input type="file" id="file" name="file" class="form-control" accept=".xls,.xlsx" required />
+    </div>
+
+    <button type="submit" class="btn btn-primary">上傳名冊</button>
+}

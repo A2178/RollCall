@@ -1,0 +1,61 @@
+﻿body {
+    font-family: Arial, sans-serif;
+}
+
+.input-buttons {
+    margin-bottom: 20px;
+}
+
+.inputAndButtonParent{
+    margin-left:25%;
+    display:flex;
+}
+
+.submitInputButton {
+    margin-top: 40px;
+}
+
+.inputAndButtonChild{
+    margin-inline:20px;
+}
+
+.input-buttons button {
+    padding: 10px 15px;
+    background-color: #4f81bd;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+table, th, td {
+    border: 1px solid #ddd;
+}
+
+th, td {
+    padding: 12px;
+    text-align: center;
+}
+
+th {
+    background-color: #f2f2f2;
+}
+
+button {
+    padding: 10px 15px;
+    background-color: #4f81bd;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+    button:hover {
+        background-color: #0056b3;
+    }

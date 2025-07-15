@@ -1,0 +1,719 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Data.Entity;
+using System.Linq;
+using System.Net;
+using System.Web;
+using System.Web.Mvc;
+using OfficeOpenXml;
+using PagedList;
+using RollCall.Models;
+using ClosedXML.Excel;
+using System.IO;
+using Serilog;
+using RollCall.Filters;
+
+namespace RollCall.Controllers
+{
+    public class RCS_EMPLOYEESController : Controller
+    {
+        private TEST_RollCallDBEntities db = new TEST_RollCallDBEntities();
+
+        [AuthorizeFilter]
+        public ActionResult Index(string search, int? page, int? pageSize, bool? isEditing, string selectedGroup, bool? filterByGroup)
+        {
+            // 根據 Session["Permission"] 限制員工資料的篩選
+            string permission = Session["Permission"]?.ToString();
+            Log.Information("進入員工資料表, 使用者權限: {permission},搜尋: {search}, 分頁: {page}, 尺寸: {pageSize}, 是否編輯: {isEditing}, 選組: {selectedGroup}, 過濾: {filterByGroup}",
+                permission, search, page, pageSize, isEditing, selectedGroup, filterByGroup);
+
+            // 檢查是否為第一次進入系統
+            bool isFirstVisit = string.IsNullOrEmpty(Request.Headers["Referer"]);
+
+            // 預設每頁顯示筆數
+            int size = pageSize ?? 10;
+
+            // 查詢所有員工資料
+            IQueryable<EmployeeViewModel> employees = db.RCS_EMPLOYEES
+                                            .Where(e => e.IS_ACTIVED && !e.IS_DELETED)
+                                            .Select(e => new EmployeeViewModel
+                                            {
+                                                AutoId = e.AUTO_ID,
+                                                EmpName = e.EMP_NAME,
+                                                Department = e.DEPARTMENT,
+                                                Position = e.POSITION,
+                                                EmpNumber = e.EMP_NUMBER,
+                                                SalesDepID = e.SALES_DEP_ID
+                                            });
+
+            Session["filterByGroup"] = false;
+            Session["isEditing"] = false;
+            
+
+            if (!string.IsNullOrEmpty(permission))
+            {
+                switch (permission)
+                {
+                    case "台北HR":
+                        employees = employees.Where(e => e.SalesDepID == "PS.TPE" || e.SalesDepID == "PC.TPE" || e.SalesDepID == "總經理");
+                        break;
+                    case "台中HR":
+                        employees = employees.Where(e => e.SalesDepID == "PS.TXG" || e.SalesDepID == "PC.TXG" || e.SalesDepID == "總經理");
+                        break;
+                    case "高雄HR":
+                        employees = employees.Where(e => e.SalesDepID == "PS.KHH" || e.SalesDepID == "PC.KHH" || e.SalesDepID == "總經理");
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            // 如果啟用了分組篩選模式，根據組別篩選員工
+            if (filterByGroup == true && !string.IsNullOrEmpty(selectedGroup))
+            {
+                Session["filterByGroup"] = true;
+                var groupMemberIds = db.RCS_EMPLOYEE_GROUP
+                    .Where(g => g.GROUP_AUTO_ID == db.RCS_GROUP
+                                    .Where(gr => gr.GROUP_NAME == selectedGroup && gr.IS_ACTIVED && !gr.IS_DELETED)
+                                    .Select(gr => gr.AUTO_ID).FirstOrDefault()
+                                && g.IS_ACTIVED && !g.IS_DELETED)
+                    .Select(g => g.EMP_AUTO_ID)
+                    .ToList();
+
+                employees = employees.Where(e => groupMemberIds.Contains(e.AutoId));
+            }
+
+            // 如果進入編輯模式，過濾掉已存在於該組別的員工
+            if (isEditing == true && !string.IsNullOrEmpty(selectedGroup))
+            {
+                Session["isEditing"] = true;
+                var groupMemberIds = db.RCS_EMPLOYEE_GROUP
+                    .Where(g => g.GROUP_AUTO_ID == db.RCS_GROUP
+                                    .Where(gr => gr.GROUP_NAME == selectedGroup && gr.IS_ACTIVED && !gr.IS_DELETED)
+                                    .Select(gr => gr.AUTO_ID).FirstOrDefault()
+                                && g.IS_ACTIVED && !g.IS_DELETED)
+                    .Select(g => g.EMP_AUTO_ID)
+                    .ToList();
+
+                employees = employees.Where(e => !groupMemberIds.Contains(e.AutoId));
+            }
+
+            // 搜尋條件過濾
+            if (!string.IsNullOrEmpty(search))
+            {
+                employees = employees.Where(e =>
+                    e.EmpName.Contains(search) ||
+                    e.Department.Contains(search) ||
+                    e.EmpNumber.Contains(search) ||
+                    e.Position.Contains(search));
+            }
+
+            // 查詢所有可用的自定義分組，並根據 Session["Permission"] 限制篩選
+            IQueryable<RCS_GROUP> groupsQuery = db.RCS_GROUP
+                .Where(g => g.IS_ACTIVED && !g.IS_DELETED);
+
+            if (!string.IsNullOrEmpty(permission))
+            {
+                groupsQuery = groupsQuery.Where(g => g.CREATE_BY == permission);
+            }
+
+            var groups = groupsQuery.Select(g => g.GROUP_NAME).ToList();
+
+            // 傳遞每頁顯示筆數到 ViewBag，供前端選擇器使用
+            ViewBag.PageSize = size;
+            ViewBag.Groups = groups;
+
+            // 保持查詢字串的 isEditing 狀態
+            ViewBag.IsEditing = isEditing ?? false;
+
+            // 傳遞當前選擇的組別到 View
+            ViewBag.SelectedGroup = selectedGroup ?? "";
+
+            // 傳遞是否啟用分組篩選
+            ViewBag.FilterByGroup = filterByGroup ?? false;
+
+            // 傳遞是否為首次訪問到 View
+            ViewBag.IsFirstVisit = isFirstVisit;
+
+
+            Log.Information("進入員工資料表結束, 使用者權限: {permission},搜尋: {search}, 分頁: {page}, 尺寸: {pageSize}, 是否編輯: {isEditing}, 選組: {selectedGroup}, 過濾: {filterByGroup}",
+                permission, search, page, pageSize, isEditing, selectedGroup, filterByGroup);
+            // 回傳分頁資料到 View
+            return View(employees.OrderBy(e => e.EmpName).ToPagedList(page ?? 1, size));
+        }
+
+
+
+        [AuthorizeFilter]
+        public ActionResult Create()
+        {
+            // 模擬從數據庫中獲取職務下拉選單的數據
+            var positions = db.RCS_EMPLOYEES
+                .Select(e => e.POSITION)
+                .Distinct()
+                .ToList();
+
+            ViewBag.Positions = new SelectList(positions);
+
+            return View(new EmployeeViewModel());
+        }
+
+        [HttpPost]
+        [AuthorizeFilter]
+        public JsonResult Create(EmployeeViewModel model)
+        {
+            string permission = Session["Permission"]?.ToString();
+            Log.Information("建立員工資料, 使用者權限: {permission}", permission);
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    if (db.RCS_EMPLOYEES.Any(e => e.EMP_NUMBER == model.EmpNumber))
+                    {
+                        Log.Error("建立員工資料錯誤！, 使用者權限: {permission}, 員工資料: {model}", permission,model);
+                        return Json(new { success = false, error = "員工編號已存在！" });
+                    }
+
+                    var newEmployee = new RCS_EMPLOYEES
+                    {
+                        AUTO_GUID = Guid.NewGuid(),
+                        EMP_NAME = model.EmpName,
+                        DEPARTMENT = model.Department,
+                        POSITION = model.Position,
+                        EMP_NUMBER = model.EmpNumber,
+                        SALES_DEP_ID = model.SalesDepID,
+                        IS_ACTIVED = true,
+                        IS_DELETED = false,
+                        CREATE_BY = Session["Permission"]?.ToString() ?? "System",
+                        CREATE_TIME = DateTime.Now,
+                        MODIFY_BY = Session["Permission"]?.ToString() ?? "System",
+                        MODIFY_TIME = DateTime.Now
+                    };
+
+                    db.RCS_EMPLOYEES.Add(newEmployee);
+                    db.SaveChanges();
+
+                    Log.Information("建立員工資料結束, 使用者權限: {permission}, 姓名: {EMP_NAME}, 部門: {DEPARTMENT}, 職位: {POSITION}, 員編:{EMP_NUMBER}, 業屬: {SALES_DEP_ID}", 
+                        permission,newEmployee.EMP_NAME, newEmployee.DEPARTMENT,newEmployee.POSITION,newEmployee.EMP_NUMBER,newEmployee.SALES_DEP_ID);
+
+                    return Json(new { success = true });
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("建立員工資料錯誤！, 使用者權限: {permission}, 員工資料:{model}", permission, model);
+                    return Json(new { success = false, error = $"新增失敗：{ex.Message}" });
+                }
+            }
+            Log.Error("建立員工資料錯誤！, 使用者權限: {permission}, 員工資料: {model}", permission, model);
+            return Json(new { success = false, error = "請檢查輸入內容！" });
+        }
+
+
+
+        [HttpGet]
+        [AuthorizeFilter]
+        public ActionResult UploadEmployeeList()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        public ActionResult UploadEmployeeList(HttpPostedFileBase file)
+        {
+            if (file == null || file.ContentLength == 0)
+            {
+                TempData["Error"] = "請選擇有效的 Excel 檔案";
+                return RedirectToAction("Index");
+            }
+
+            try
+            {
+                int importCount = 0; // 成功匯入的資料筆數
+                using (var workbook = new XLWorkbook(file.InputStream))
+                {
+                    if (workbook.Worksheets.Count == 0)
+                    {
+                        throw new Exception("Excel 文件中沒有任何有效的工作表。");
+                    }
+
+                    var worksheet = workbook.Worksheets.First();
+                    if (worksheet == null)
+                    {
+                        throw new Exception("找不到工作表，請確認檔案內容。");
+                    }
+
+                    // 獲取行數與列數
+                    var rowCount = worksheet.RowsUsed().Count();
+                    var headerRow = worksheet.Row(1);
+
+                    // 確認表頭並建立欄位映射
+                    Dictionary<string, int> headerMap = new Dictionary<string, int>();
+                    foreach (var cell in headerRow.CellsUsed())
+                    {
+                        string header = cell.GetValue<string>().Trim();
+                        if (!string.IsNullOrEmpty(header))
+                        {
+                            headerMap[header] = cell.Address.ColumnNumber;
+                        }
+                    }
+
+                    // 必要欄位檢查
+                    string[] requiredHeaders = new[] { "姓名", "部門", "職位", "員工編號", "分部" };
+                    foreach (string header in requiredHeaders)
+                    {
+                        if (!headerMap.ContainsKey(header))
+                        {
+                            throw new Exception($"缺少必要的欄位：{header}");
+                        }
+                    }
+
+                    // 分部代號映射 (SALES_DEP_ID)
+                    Dictionary<string, string> departmentMapping = new Dictionary<string, string>
+                    {
+                        { "台北沛華", "PS.TPE" },
+                        { "台北沛榮", "PC.TPE" },
+                        { "台中沛華", "PS.TXG" },
+                        { "台中沛榮", "PC.TXG" },
+                        { "高雄沛華", "PS.KHH" },
+                        { "高雄沛榮", "PC.KHH" },
+                        { "台北沛驊", "PS.TPE" },
+                        { "台中沛驊", "PS.TXG" },
+                        { "高雄沛驊", "PS.KHH" },
+                    };
+
+                    // 逐行處理 Excel 資料
+                    for (int row = 2; row <= rowCount; row++)
+                    {
+                        string empName = worksheet.Row(row).Cell(headerMap["姓名"]).GetValue<string>().Trim();
+                        string department = worksheet.Row(row).Cell(headerMap["部門"]).GetValue<string>().Trim();
+                        string position = worksheet.Row(row).Cell(headerMap["職位"]).GetValue<string>().Trim();
+                        string empNumber = worksheet.Row(row).Cell(headerMap["員工編號"]).GetValue<string>().Trim();
+                        string division = worksheet.Row(row).Cell(headerMap["分部"]).GetValue<string>().Trim();
+
+                        if (string.IsNullOrEmpty(empName) || string.IsNullOrEmpty(empNumber))
+                        {
+                            continue; // 跳過資料不完整的行
+                        }
+
+                        // 檢查是否存在重複的員工編號
+                        bool exists = db.RCS_EMPLOYEES.Any(e => e.EMP_NUMBER == empNumber);
+                        if (exists)
+                        {
+                            continue; // 跳過重複的資料
+                        }
+
+                        // 根據分部映射 SALES_DEP_ID
+                        string salesDepId = departmentMapping
+                            .FirstOrDefault(m => division.Contains(m.Key)).Value ?? "總經理";
+
+                        // 建立新的員工記錄
+                        var employee = new RCS_EMPLOYEES
+                        {
+                            AUTO_GUID = Guid.NewGuid(),
+                            EMP_NAME = empName,
+                            DEPARTMENT = department,
+                            POSITION = position,
+                            EMP_NUMBER = empNumber,
+                            SALES_DEP_ID = salesDepId,
+                            IS_ACTIVED = true,
+                            CREATE_BY = Session["Permission"]?.ToString() ?? "System",
+                            CREATE_TIME = DateTime.Now,
+                            MODIFY_BY = Session["Permission"]?.ToString() ?? "System",
+                            MODIFY_TIME = DateTime.Now
+                        };
+
+                        db.RCS_EMPLOYEES.Add(employee);
+                        importCount++;
+                    }
+
+                    db.SaveChanges();
+                }
+
+                TempData["Success"] = $"成功匯入 {importCount} 筆員工資料！";
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = $"匯入失敗: {ex.Message}";
+            }
+
+            return RedirectToAction("Index");
+        }
+
+        [HttpPost]
+        public JsonResult AddGroup(string groupName)
+        {
+            string permission = Session["Permission"]?.ToString();
+            Log.Information("新增常用組別, 使用者權限: {permission}, 組別名稱: {groupName}",
+                permission, groupName);
+            try
+            {
+                if (string.IsNullOrEmpty(groupName))
+                {
+                    Log.Error("新增常用組別錯誤！, 使用者權限: {permission}, 組別名稱: {groupName}",
+                    permission, groupName);
+                    return Json(new { success = false, error = "分組名稱不可為空！" });
+                }
+
+                // 檢查分組是否已存在
+                if (db.RCS_GROUP.Any(g => g.GROUP_NAME == groupName))
+                {
+                    Log.Error("新增常用組別錯誤！, 使用者權限: {permission}, 組別名稱: {groupName}",
+                    permission, groupName);
+                    return Json(new { success = false, error = "該分組名稱已存在！" });
+                }
+
+                // 新增分組
+                var newGroup = new RCS_GROUP
+                {
+                    AUTO_GUID = Guid.NewGuid(),
+                    GROUP_NAME = groupName,
+                    IS_ACTIVED = true,
+                    CREATE_BY = Session["Permission"]?.ToString() ?? "System",
+                    CREATE_TIME = DateTime.Now,
+                    MODIFY_BY = Session["Permission"]?.ToString() ?? "System",
+                    MODIFY_TIME = DateTime.Now
+                };
+
+                db.RCS_GROUP.Add(newGroup);
+                db.SaveChanges();
+
+                Log.Information("新增常用組別結束, 使用者權限: {permission}, 組別名稱: {groupName}",
+                permission, groupName);
+                return Json(new { success = true, message = "分組新增成功！" });
+            }
+            catch (Exception ex)
+            {
+                Log.Information("新增常用組別結束, 使用者權限: {permission}, 組別名稱: {groupName}",
+                permission, groupName);
+                return Json(new { success = false, error = $"新增分組時發生錯誤：{ex.Message}" });
+            }
+        }
+
+        [HttpPost]
+        public JsonResult SaveGroup(string groupName, List<long> employeeIds)
+        {
+            string permission = Session["Permission"]?.ToString();
+            Log.Information("保存組別, 使用者權限: {permission}, 組別名稱:{groupName}, 員工流水號: {employeeIds}",
+                permission, groupName, employeeIds);
+
+            if (string.IsNullOrEmpty(groupName) || employeeIds == null || !employeeIds.Any())
+            {
+                Log.Error("保存組別錯誤！, 使用者權限: {permission}, 組別名稱:{groupName}, 員工流水號: {employeeIds}",
+                    permission, groupName, employeeIds);
+                return Json(new { success = false, error = "組別名稱或員工清單無效！" });
+            }
+
+            try
+            {
+                // 1. 找到常用群組 (RCS_GROUP)
+                var group = db.RCS_GROUP
+                    .FirstOrDefault(g => g.GROUP_NAME == groupName
+                                         && g.IS_ACTIVED
+                                         && !g.IS_DELETED);
+                if (group == null)
+                {
+                    Log.Error("保存組別錯誤！, 使用者權限: {permission}, 組別名稱:{groupName}, 員工流水號: {employeeIds}",
+                        permission, groupName, employeeIds);
+                    return Json(new { success = false, error = "找不到指定的組別！" });
+                }
+
+                // 2. 先處理 "RCS_EMPLOYEE_GROUP" - 指派員工到常用群組
+                //    查詢當前此 group 下，"已存在" 或 "被標刪" 的紀錄
+                var existingRecords = db.RCS_EMPLOYEE_GROUP
+                    .Where(eg => eg.GROUP_AUTO_ID == group.AUTO_ID
+                              && employeeIds.Contains(eg.EMP_AUTO_ID))
+                    .ToList();
+
+                foreach (var empId in employeeIds)
+                {
+                    // 檢查是否已在 RCS_EMPLOYEE_GROUP 中
+                    var existingRecord = existingRecords
+                        .FirstOrDefault(eg => eg.EMP_AUTO_ID == empId);
+
+                    if (existingRecord != null)
+                    {
+                        // 如果記錄存在但被標刪，就重新啟用
+                        if (existingRecord.IS_DELETED)
+                        {
+                            existingRecord.IS_DELETED = false;
+                            existingRecord.MODIFY_BY = permission ?? "System";
+                            existingRecord.MODIFY_TIME = DateTime.Now;
+                        }
+                    }
+                    else
+                    {
+                        // 若不存在，直接新增
+                        db.RCS_EMPLOYEE_GROUP.Add(new RCS_EMPLOYEE_GROUP
+                        {
+                            AUTO_GUID = Guid.NewGuid(),
+                            GROUP_AUTO_ID = group.AUTO_ID,
+                            EMP_AUTO_ID = empId,
+                            IS_ACTIVED = true,
+                            IS_DELETED = false,
+                            CREATE_BY = permission ?? "System",
+                            CREATE_TIME = DateTime.Now,
+                            MODIFY_BY = permission ?? "System",
+                            MODIFY_TIME = DateTime.Now
+                        });
+                    }
+                }
+                db.SaveChanges();
+
+                // 3. **關鍵**：同步更新「該常用群組對應的所有會議群組(RCS_MEETING_GROUP)，
+                //    若該員工曾在 RCS_MEMBER 中被標刪(IS_DELETED = true)，就重新啟用(IS_DELETED = false)**
+                //    （這裡僅限「過去確實有該成員」的紀錄才會重啟；如果該成員從未出現，
+                //     可以選擇要不要自動新增）
+
+                // 3-1. 先找出此常用群組對應到的所有會議組別ID
+                var meetingGroupIds = db.RCS_MEETING_GROUP_MAP
+                    .Where(map => map.GROUP_AUTO_ID == group.AUTO_ID && !map.IS_DELETED)
+                    .Select(map => map.MEETING_GROUP_AUTO_ID)
+                    .Distinct()
+                    .ToList();
+
+                if (meetingGroupIds.Any())
+                {
+                    // 3-2. 找到曾經存在於 RCS_MEMBER，且被標刪(IS_DELETED = true)的紀錄
+                    var membersToReEnable = db.RCS_MEMBER
+                        .Where(mem => meetingGroupIds.Contains(mem.MEETING_GROUP_AUTO_ID)
+                                   && employeeIds.Contains(mem.EMP_AUTO_ID)
+                                   && mem.IS_DELETED) // 只挑被標刪的
+                        .ToList();
+
+                    foreach (var mem in membersToReEnable)
+                    {
+                        // 重啟
+                        mem.IS_DELETED = false;
+                        mem.MODIFY_BY = permission ?? "System";
+                        mem.MODIFY_TIME = DateTime.Now;
+                    }
+
+                    /*
+                    var existingMemberEmpIds = membersToReEnable.Select(x => x.EMP_AUTO_ID).Distinct().ToList();
+                    var neverHadMembers = employeeIds.Except(existingMemberEmpIds).ToList();
+                    if (neverHadMembers.Any())
+                    {
+                        // 針對所有 mgID 幫 "從未出現過" 的員工一併加入 RCS_MEMBER
+                        foreach (var mgId in meetingGroupIds)
+                        {
+                            foreach (var empId in neverHadMembers)
+                            {
+                                db.RCS_MEMBER.Add(new RCS_MEMBER
+                                {
+                                    AUTO_GUID = Guid.NewGuid(),
+                                    MEETING_GROUP_AUTO_ID = mgId,
+                                    EMP_AUTO_ID = empId,
+                                    // 其他欄位請自行填寫預設值
+                                    CREATE_BY = permission ?? "System",
+                                    CREATE_TIME = DateTime.Now,
+                                    MODIFY_BY = permission ?? "System",
+                                    MODIFY_TIME = DateTime.Now,
+                                    IS_ACTIVED = true,
+                                    IS_DELETED = false
+                                });
+                            }
+                        }
+                    }
+                    */
+
+                    db.SaveChanges();
+                }
+
+                Log.Information("保存組別結束, 使用者權限: {permission}, 組別名稱:{groupName}, 員工流水號: {employeeIds}",
+                    permission, groupName, employeeIds);
+
+                return Json(new { success = true, message = "保存成功！" });
+            }
+            catch (Exception ex)
+            {
+                Log.Error("保存組別錯誤！, 使用者權限: {permission}, 組別名稱:{groupName}, 員工流水號: {employeeIds}, 錯誤：{exMsg}",
+                    permission, groupName, employeeIds, ex.Message);
+                return Json(new { success = false, error = "保存分組過程中發生錯誤：" + ex.Message });
+            }
+        }
+
+
+        [HttpPost]
+        public JsonResult RemoveFromGroup(string groupName, long empId)
+        {
+            string permission = Session["Permission"]?.ToString();
+            Log.Information("刪除組別, 使用者權限: {permission}, 組別名稱: {groupName}, 員工流水號: {empId}",
+                permission, groupName, empId);
+
+            try
+            {
+                // 1. 找到常用群組
+                var group = db.RCS_GROUP.FirstOrDefault(g => g.GROUP_NAME == groupName && g.IS_ACTIVED && !g.IS_DELETED);
+                if (group == null)
+                {
+                    Log.Error("刪除組別錯誤！, 使用者權限: {permission}, 組別名稱: {groupName}, 員工流水號: {empId}",
+                    permission, groupName, empId);
+                    return Json(new { success = false, error = "找不到指定的分組！" });
+                }
+
+                // 2. 確認該員工是否存在於該常用群組中
+                var employeeGroup = db.RCS_EMPLOYEE_GROUP.FirstOrDefault(eg =>
+                    eg.GROUP_AUTO_ID == group.AUTO_ID && eg.EMP_AUTO_ID == empId && eg.IS_ACTIVED && !eg.IS_DELETED);
+                if (employeeGroup == null)
+                {
+                    Log.Error("刪除組別錯誤！, 使用者權限: {permission}, 組別名稱: {groupName}, 員工流水號: {empId}",
+                    permission, groupName, empId);
+                    return Json(new { success = false, error = "員工不在該分組中！" });
+                }
+
+                // 標記該員工與常用群組的關係為刪除
+                employeeGroup.IS_DELETED = true;
+                employeeGroup.MODIFY_TIME = DateTime.Now;
+
+                // 3. 找到該常用群組分配的所有會議組別
+                var meetingGroupIds = db.RCS_MEETING_GROUP_MAP
+                    .Where(map => map.GROUP_AUTO_ID == group.AUTO_ID && !map.IS_DELETED)
+                    .Select(map => map.MEETING_GROUP_AUTO_ID)
+                    .ToList();
+
+                if (meetingGroupIds.Any())
+                {
+                    // 4. 找到這些會議組別中該員工的所有成員資料
+                    var membersToRemove = db.RCS_MEMBER
+                        .Where(mem => meetingGroupIds.Contains(mem.MEETING_GROUP_AUTO_ID)
+                                      && mem.EMP_AUTO_ID == empId
+                                      && !mem.IS_DELETED)
+                        .ToList();
+
+                    foreach (var member in membersToRemove)
+                    {
+                        member.IS_DELETED = true;
+                        member.MODIFY_TIME = DateTime.Now;
+                    }
+                }
+
+                // 保存更改
+                db.SaveChanges();
+
+                Log.Information("刪除組別結束, 使用者權限: {permission}, 組別名稱: {groupName}, 員工流水號: {empId}",
+                    permission, groupName, empId);
+
+                return Json(new { success = true });
+            }
+            catch (Exception ex)
+            {
+                Log.Error("刪除組別錯誤！, 使用者權限: {permission}, 組別名稱: {groupName}, 員工流水號: {empId}, 錯誤訊息: {ErrorMessage}",
+                    permission, groupName, empId, ex.Message);
+                return Json(new { success = false, error = ex.Message });
+            }
+        }
+
+        [AuthorizeFilter]
+        public ActionResult Edit(long id)
+        {
+            string permission = Session["Permission"]?.ToString();
+            Log.Information("進入編輯員工頁面, 使用者權限: {permission}, 員工流水號:{id}",
+                permission, id);
+            var employee = db.RCS_EMPLOYEES
+                .Where(e => e.AUTO_ID == id)
+                .Select(e => new EmployeeViewModel
+                {
+                    AutoId = e.AUTO_ID,
+                    EmpName = e.EMP_NAME,
+                    Department = e.DEPARTMENT,
+                    Position = e.POSITION,
+                    EmpNumber = e.EMP_NUMBER,
+                    SalesDepID = e.SALES_DEP_ID,
+                    Modify_Time = e.MODIFY_TIME
+                })
+                .FirstOrDefault();
+
+            if (employee == null)
+            {
+                Log.Error("進入編輯員工頁面錯誤！, 使用者權限: {permission}, 員工流水號:{id}",
+                permission, id);
+                return HttpNotFound();
+            }
+            Log.Information("進入編輯員工頁面結束, 使用者權限: {permission}, 員工流水號:{id}",
+                permission, id);
+            return View(employee);
+        }
+
+
+        [HttpPost]
+        public JsonResult Edit(EmployeeViewModel model)
+        {
+            string permission = Session["Permission"]?.ToString();
+            Log.Information("編輯員工資料, 使用者權限: {permission}, 員工資料:{model}", permission, model);
+
+            if (ModelState.IsValid)
+            {
+                var employee = db.RCS_EMPLOYEES.FirstOrDefault(e => e.AUTO_ID == model.AutoId);
+                if (employee != null)
+                {
+                    employee.EMP_NAME = model.EmpName;
+                    employee.DEPARTMENT = model.Department;
+                    employee.POSITION = model.Position;
+                    employee.EMP_NUMBER = model.EmpNumber;
+                    employee.SALES_DEP_ID = model.SalesDepID;
+                    employee.MODIFY_BY = permission ?? "System";
+                    employee.MODIFY_TIME = DateTime.Now;
+
+                    db.SaveChanges();
+                    Log.Information("編輯員工資料成功, 使用者權限: {permission}, 員工資料:{model}", permission, model);
+
+                    return Json(new { success = true });
+                }
+                return Json(new { success = false, message = "找不到該員工。" });
+            }
+            return Json(new { success = false, message = "資料驗證失敗。" });
+        }
+
+
+        [AuthorizeFilter]
+        public ActionResult Delete(int id)
+        {
+            string permission = Session["Permission"]?.ToString();
+            Log.Information("刪除員工資料頁面, 使用者權限: {permission}, 員工流水號: {id}",
+                permission, id);
+            var employee = db.RCS_EMPLOYEES.FirstOrDefault(e => e.AUTO_ID == id);
+            if (employee == null)
+            {
+                Log.Error("刪除員工資料頁面錯誤！, 使用者權限: {permission}, 員工流水號: {id}",
+                permission, id);
+                return HttpNotFound();
+            }
+            Log.Information("刪除員工資料頁面結束, 使用者權限: {permission}, 員工流水號: {id}",
+                permission, id);
+            return View(employee);
+        }
+
+        [HttpPost]
+        [ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        public ActionResult DeleteConfirmed(int id)
+        {
+            string permission = Session["Permission"]?.ToString();
+            Log.Information("刪除員工資料, 使用者權限: {permission}, 員工流水號: {id}",
+                permission, id);
+            var employee = db.RCS_EMPLOYEES.FirstOrDefault(e => e.AUTO_ID == id);
+            if (employee != null)
+            {
+                employee.IS_DELETED = true;
+                employee.MODIFY_BY = Session["Permission"]?.ToString() ?? "System";
+                employee.MODIFY_TIME = DateTime.Now;
+                Log.Information("刪除員工資料結束, 使用者權限: {permission}, 員工流水號: {id}",
+                permission, id);
+                db.SaveChanges();
+            }
+
+            return RedirectToAction("Index");
+        }
+
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                db.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+    }
+}

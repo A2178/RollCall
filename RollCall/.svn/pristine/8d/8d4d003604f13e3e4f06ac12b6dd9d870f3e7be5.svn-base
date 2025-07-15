@@ -1,0 +1,69 @@
+﻿@model RollCall.Models.RCS_EMPLOYEES
+
+@{
+    ViewBag.Title = "Delete";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>刪除員工</h2>
+
+<h3>確定要刪除此員工嗎？</h3>
+<div>
+    <hr />
+    <dl class="dl-horizontal">
+
+        <dt>
+            員工姓名
+        </dt>
+        <dd>
+            @Html.DisplayFor(model => model.EMP_NAME)
+        </dd>
+
+        <dt>
+            職位
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.POSITION)
+        </dd>
+
+        <dt>
+            員工編號
+        </dt>
+        <dd>
+            @Html.DisplayFor(model => model.EMP_NUMBER)
+        </dd>
+
+        <dt>
+            部門
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.DEPARTMENT)
+        </dd>
+
+        <dt>
+            業務所屬部門
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.SALES_DEP_ID)
+        </dd>
+
+        <dt>
+            修改時間
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.MODIFY_TIME)
+        </dd>
+    </dl>
+
+    @using (Html.BeginForm()) {
+        @Html.AntiForgeryToken()
+        <div class="form-actions no-color">
+            <input type="submit" value="刪除" class="btn btn-danger" /> |
+            @Html.ActionLink("返回員工資料表", "Index")
+        </div>
+    }
+</div>

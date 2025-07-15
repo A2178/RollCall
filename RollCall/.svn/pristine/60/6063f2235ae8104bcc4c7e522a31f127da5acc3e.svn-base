@@ -1,0 +1,33 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+
+namespace RollCall.Models
+{
+    public class MeetingEditViewModel
+    {
+        public RCS_MEETING Meeting { get; set; }
+        // 這裡保留自定義群組列表 (RCS_GROUP) 給下拉選單使用
+        public List<RCS_GROUP> GroupList { get; set; }
+
+        // 新增: 會議底下的多個群組 (RCS_MEETING_GROUP) 與其成員
+        public List<MeetingGroupViewModel> MeetingGroups { get; set; }
+    }
+
+    public class MeetingGroupViewModel
+    {
+        public long AUTO_ID { get; set; }          // RCS_MEETING_GROUP.AUTO_ID
+        public string GROUP_NAME { get; set; }    // 只會是那六種(PS.TPE, PC.TPE...)
+
+        // 該 MeetingGroup 底下的成員 (來自 RCS_MEMBER + RCS_EMPLOYEES)
+        public List<MeetingMemberViewModel> Members { get; set; }
+    }
+
+    public class MeetingMemberViewModel
+    {
+        public long MemberAutoId { get; set; }   // RCS_MEMBER.AUTO_ID
+        public long EmpAutoId { get; set; }      // RCS_MEMBER.EMP_AUTO_ID
+        public string EmployeeName { get; set; }
+    }
+}

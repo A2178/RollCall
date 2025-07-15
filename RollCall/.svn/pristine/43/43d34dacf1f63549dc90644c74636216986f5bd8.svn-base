@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="3.0" xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+ <!-- EF Designer content (DO NOT EDIT MANUALLY BELOW HERE) -->
+  <edmx:Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
+    <!-- Diagram content (shape and connector positions) -->
+    <edmx:Diagrams>
+      <Diagram DiagramId="9e30c2a407264a2383267cb23ae60459" Name="Diagram1">
+        <EntityTypeShape EntityType="TEST_RollCall_Meeting_DBModel1.RCS_CALL_LOG" Width="1.5" PointX="8.25" PointY="6.25" />
+        <EntityTypeShape EntityType="TEST_RollCall_Meeting_DBModel1.RCS_EMPLOYEE_GROUP" Width="1.5" PointX="11.25" PointY="7.25" />
+        <EntityTypeShape EntityType="TEST_RollCall_Meeting_DBModel1.RCS_EMPLOYEES" Width="1.5" PointX="6" PointY="12.125" />
+        <EntityTypeShape EntityType="TEST_RollCall_Meeting_DBModel1.RCS_GROUP" Width="1.5" PointX="3" PointY="1.625" />
+        <EntityTypeShape EntityType="TEST_RollCall_Meeting_DBModel1.RCS_MEETING" Width="1.5" PointX="0.75" PointY="6.375" />
+        <EntityTypeShape EntityType="TEST_RollCall_Meeting_DBModel1.RCS_MEETING_GROUP" Width="1.5" PointX="3" PointY="6.25" />
+        <EntityTypeShape EntityType="TEST_RollCall_Meeting_DBModel1.RCS_MEETING_GROUP_MAP" Width="1.5" PointX="5.25" PointY="1.5" />
+        <EntityTypeShape EntityType="TEST_RollCall_Meeting_DBModel1.RCS_MEMBER" Width="1.5" PointX="5.25" PointY="6.25" />
+        <EntityTypeShape EntityType="TEST_RollCall_Meeting_DBModel1.RCS_USER_PERMISSION" Width="1.5" PointX="7.75" PointY="0.75" />
+        <AssociationConnector Association="TEST_RollCall_Meeting_DBModel1.RCS_CALL_LOG_FK1" />
+        <AssociationConnector Association="TEST_RollCall_Meeting_DBModel1.RCS_CALL_LOG_FK2" />
+        <AssociationConnector Association="TEST_RollCall_Meeting_DBModel1.RCS_EMPLOYEE_GROUP_FK1" />
+        <AssociationConnector Association="TEST_RollCall_Meeting_DBModel1.RCS_EMPLOYEE_GROUP_FK2" />
+        <AssociationConnector Association="TEST_RollCall_Meeting_DBModel1.RCS_MEMBER_FK1" />
+        <AssociationConnector Association="TEST_RollCall_Meeting_DBModel1.RCS_MEETING_GROUP_MAP_FK1" />
+        <AssociationConnector Association="TEST_RollCall_Meeting_DBModel1.RCS_MEETING_GROUP_FK1" />
+        <AssociationConnector Association="TEST_RollCall_Meeting_DBModel1.RCS_MEETING_GROUP_MAP_FK2" />
+        <AssociationConnector Association="TEST_RollCall_Meeting_DBModel1.RCS_MEMBER_FK2" />
+      </Diagram>
+    </edmx:Diagrams>
+  </edmx:Designer>
+</edmx:Edmx>

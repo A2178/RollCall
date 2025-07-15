@@ -1,0 +1,157 @@
+﻿@model RollCall.Models.MeetingEditViewModel
+
+@{
+    ViewBag.Title = "Edit";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+<h2>編輯會議記錄</h2>
+
+@using (Html.BeginForm())
+{
+    @Html.AntiForgeryToken()
+
+    <div class="form-horizontal" style="margin-right:20px;">
+        @Html.ValidationSummary(true, "", new { @class = "text-danger" })
+
+        @Html.HiddenFor(model => model.Meeting.AUTO_ID)
+        @Html.HiddenFor(model => model.Meeting.AUTO_GUID)
+
+        <!-- 水平排列的輸入框 -->
+        <div class="form-group horizontal-group" style="display: flex; justify-content: space-between; gap: 20px;">
+            <!-- 會議名稱 -->
+            <div class="horizontal-item" style="flex: 1;">
+                <label for="MeetingName">會議名稱</label>
+                @Html.EditorFor(model => model.Meeting.MEETING_NAME, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.Meeting.MEETING_NAME, "", new { @class = "text-danger" })
+            </div>
+
+            <!-- 開始時間 -->
+            <div class="horizontal-item" style="flex: 1;">
+                <label for="MeetingStart">開始時間</label>
+                <input type="text" id="meetingStartInput" class="form-control" name="Meeting.MEETING_START" value="@Model.Meeting.MEETING_START?.ToString(" yyyy-MM-dd HH:mm")" />
+                @Html.ValidationMessageFor(model => model.Meeting.MEETING_START, "", new { @class = "text-danger" })
+            </div>
+
+            <!-- 結束時間 -->
+            <div class="horizontal-item" style="flex: 1;">
+                <label for="MeetingEnd">結束時間</label>
+                <input type="text" id="meetingEndInput" class="form-control" name="Meeting.MEETING_END" value="@Model.Meeting.MEETING_END?.ToString(" yyyy-MM-dd HH:mm")" />
+                @Html.ValidationMessageFor(model => model.Meeting.MEETING_END, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <hr />
+
+        <!-- 人員名單部分 -->
+        <h4>與會人員名單</h4>
+
+        @if (Model.Members != null && Model.Members.Any())
+        {
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>成員名稱</th>
+                        <th>組別名稱</th>
+                        <th>動作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var member in Model.Members)
+                    {
+                        <tr>
+                            <td>@member.MEMBER_NAME</td>
+                            <td>@member.GROUP_NAME</td>
+                            <td>
+                                <button type="button" class="btn btn-danger" onclick="removeMember('@member.AUTO_ID')">刪除</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <p>目前沒有任何成員。</p>
+        }
+
+        <!-- 新增成員的表單 -->
+        <div class="form-group" style="padding: 10px;">
+            <label for="newMemberName">新增成員</label>
+            <input type="text" id="newMemberName" class="form-control" placeholder="輸入成員名稱" />
+
+            <label for="newGroupName">新增分組</label>
+            <input type="text" id="newGroupName" class="form-control" placeholder="輸入分組名稱" />
+
+            <button type="button" class="btn btn-success" style="margin-top: 10px;" onclick="addMember()">新增</button>
+        </div>
+
+        <div class="form-group" style="margin-top: 10px;">
+            <div class="col-md-offset-2 col-md-10">
+                <input type="submit" value="儲存會議" class="btn btn-primary" />
+            </div>
+        </div>
+    </div>
+}
+
+<div>
+    @Html.ActionLink("返回主選單", "Index")
+</div>
+
+@section Scripts {
+    @Scripts.Render("~/bundles/jqueryval")
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+    <script type="text/javascript">
+        document.addEventListener('DOMContentLoaded', function () {
+            var meetingStart = '@(Model.Meeting.MEETING_START.HasValue ? Model.Meeting.MEETING_START.Value.ToString("yyyy-MM-dd HH:mm") : "")';
+            var meetingEnd = '@(Model.Meeting.MEETING_END.HasValue ? Model.Meeting.MEETING_END.Value.ToString("yyyy-MM-dd HH:mm") : "")';
+
+            flatpickr("#meetingStartInput", {
+                enableTime: true,
+                time_24hr: true,
+                dateFormat: "Y-m-d H:i",
+                defaultDate: meetingStart
+            });
+
+            flatpickr("#meetingEndInput", {
+                enableTime: true,
+                time_24hr: true,
+                dateFormat: "Y-m-d H:i",
+                defaultDate: meetingEnd
+            });
+        });
+
+        function removeMember(memberId) {
+            if (confirm("確定要刪除該成員嗎？")) {
+                $.post('@Url.Action("RemoveMember", "RCS_MEETING")', { memberId: memberId }, function (data) {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert("刪除失敗");
+                    }
+                });
+            }
+        }
+
+        function addMember() {
+            var memberName = $('#newMemberName').val();
+            var groupName = $('#newGroupName').val();
+
+            if (memberName) {
+                $.post('@Url.Action("AddMember", "RCS_MEETING")', { meetingId: '@Model.Meeting.AUTO_ID', memberName: memberName, groupName: groupName }, function (data) {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert("新增失敗");
+                    }
+                });
+            } else {
+                alert("請輸入成員名稱");
+            }
+        }
+    </script>
+}

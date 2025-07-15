@@ -1,0 +1,149 @@
+﻿@model RollCall.Models.EmployeeViewModel
+
+@{
+    ViewBag.Title = "Create";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>新增員工</h2>
+
+@using (Html.BeginForm())
+{
+    <div class="form-horizontal">
+        @Html.AntiForgeryToken()
+
+
+        <div class="form-group">
+            @Html.Label("員工姓名", htmlAttributes: new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                @Html.EditorFor(model => model.EmpName, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.EmpName, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            @Html.Label("部門", htmlAttributes: new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                @Html.EditorFor(model => model.Department, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.Department, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            @Html.Label("職位", htmlAttributes: new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                <!-- 下拉選單 -->
+                @*@Html.DropDownListFor(model => model.Position, ViewBag.Positions as SelectList, "請選擇職位", new { id = "Position" })*@
+
+                <!-- 新職務輸入框 -->
+                @Html.TextBoxFor(model => model.Position, new { @class = "form-control", id = "NewPosition" })
+
+                <!-- 隱藏欄位，最終提交的職務值 -->
+                @Html.HiddenFor(model => model.Position, new { id = "FinalPosition" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            @Html.Label("員工編號", htmlAttributes: new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                @Html.EditorFor(model => model.EmpNumber, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.EmpNumber, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            @Html.Label("業務所屬部門", htmlAttributes: new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                @Html.EditorFor(model => model.SalesDepID, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.SalesDepID, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <button type="button" class="btn btn-primary" onclick="createEmployee()">新增員工</button>
+            </div>
+        </div>
+    </div>
+}
+
+<div>
+    @Html.ActionLink("返回員工資料頁面", "Index")
+</div>
+<script>
+    // 當輸入新的職務名稱時，更新隱藏欄位的值
+    document.querySelector("form").addEventListener("submit", function () {
+        var newPosition = document.getElementById("NewPosition").value;
+        //var positionDropdown = document.getElementById("Position").value;
+        var finalPosition = document.getElementById("FinalPosition");
+
+        if (newPosition.trim() !== "") {
+            finalPosition.value = newPosition; // 使用輸入框的值
+        } else {
+            finalPosition.value = positionDropdown; // 使用下拉選單的值
+        }
+    });
+
+    // 當選擇下拉選單時，更新隱藏欄位的值並清空輸入框
+    //document.getElementById("Position").addEventListener("change", function () {
+    //    var positionDropdown = this.value;
+    //    var finalPosition = document.getElementById("FinalPosition");
+
+    //    if (positionDropdown.trim() !== "") {
+    //        finalPosition.value = positionDropdown; // 使用下拉選單的值
+    //        document.getElementById("NewPosition").value = ""; // 清空輸入框
+    //    }
+    //});
+
+    // 當輸入框有輸入時，清空下拉選單的值
+    document.getElementById("NewPosition").addEventListener("input", function () {
+        var newPosition = this.value;
+        var positionDropdown = document.getElementById("Position");
+        var finalPosition = document.getElementById("FinalPosition");
+
+        if (newPosition.trim() !== "") {
+            //positionDropdown.value = ""; // 清空下拉選單的值
+            finalPosition.value = newPosition; // 使用輸入框的值
+        }
+    });
+
+    function createEmployee() {
+        const empName = document.querySelector('[name="EmpName"]').value;
+        const department = document.querySelector('[name="Department"]').value;
+        const empNumber = document.querySelector('[name="EmpNumber"]').value;
+        const salesDepId = document.querySelector('[name="SalesDepID"]').value;
+        const newPosition = document.getElementById("NewPosition").value;
+        //const selectedPosition = document.getElementById("Position").value;
+        const finalPosition = newPosition.trim() !== "" ? newPosition : selectedPosition;
+
+        const data = new URLSearchParams({
+            EmpName: empName,
+            Department: department,
+            Position: finalPosition,
+            EmpNumber: empNumber,
+            SalesDepID: salesDepId
+        });
+
+        fetch('/RCS_EMPLOYEES/Create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val()
+            },
+            body: data
+        })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert('員工新增成功！');
+                    window.location.href = '/RCS_EMPLOYEES/Index';
+                } else {
+                    alert(result.error || '新增失敗！');
+                }
+            })
+            .catch(error => {
+                console.error('新增失敗:', error);
+                alert('新增過程中發生錯誤，請稍後再試！');
+            });
+    }
+</script>

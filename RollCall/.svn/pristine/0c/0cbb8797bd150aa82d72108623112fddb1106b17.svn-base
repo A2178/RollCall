@@ -1,0 +1,1205 @@
+﻿@model RollCall.Models.MeetingEditViewModel
+
+@{
+    ViewBag.Title = "Edit";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<link rel="stylesheet" href="~/Content/flatpickr.min.css">
+<script src="~/Content/flatpickr.js"></script>
+<script src="~/Content/zh-tw.js"></script>
+
+
+<style>
+
+    .horizontal-item {
+        font-size: 22px;
+    }
+
+    /* 固定表頭的樣式 */
+    .table-fixed-header thead th {
+        position: sticky;
+        top: 0;
+        background-color: #fff; /* 背景顏色防止內容與表頭重疊 */
+        z-index: 2;
+        box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1); /* 添加陰影效果，讓表頭更加突出 */
+    }
+
+    .table-centered th, .table-centered td {
+        text-align: center; /* 置中表格所有內容 */
+        vertical-align: middle; /* 垂直置中 */
+    }
+
+    thead th {
+        position: sticky;
+        top: 0;
+        background-color: white;
+        z-index: 100;
+        border: 2px solid #dee2e6; /* 確保有明顯的邊框 */
+        padding: 10px; /* 避免內容過於靠近邊框 */
+    }
+
+    tbody td {
+        border: 1px solid #dee2e6;
+        padding: 10px; /* 增加內邊距，讓內容不至於過於貼近邊框 */
+    }
+
+    table {
+        border-collapse: separate; /* 使用 separate 避免 border-collapse 影響 sticky */
+        width: 100%;
+        border-spacing: 0; /* 防止表格之間的空隙 */
+    }
+
+    input,
+    select,
+    textarea {
+        max-width: 373px;
+    }
+
+</style>
+
+@using (Html.BeginForm("Edit", "RCS_MEETING", FormMethod.Post, new { @id = "editForm" }))
+{
+    @Html.AntiForgeryToken()
+
+    <h1><strong>編輯會議記錄</strong></h1>
+
+    <div class="form-horizontal" style="margin-right:20px;">
+        @Html.ValidationSummary(true, "", new { @class = "text-danger" })
+
+        <!-- 隱藏欄位：會議主檔主鍵 -->
+        @Html.HiddenFor(model => model.Meeting.AUTO_ID)
+        @Html.HiddenFor(model => model.Meeting.AUTO_GUID)
+
+        <!-- 會議基本資料 -->
+        <h3><strong>會議基本資料</strong></h3>
+
+        <div class="form-group horizontal-group" style="display: flex; justify-content: space-between; gap: 20px;">
+            <!-- 會議名稱 -->
+            <div class="horizontal-item" style="flex: 1;">
+                <label for="meetingNameInput">會議名稱</label>
+                @Html.EditorFor(m => m.Meeting.MEETING_NAME, new { htmlAttributes = new { @class = "form-control", @id = "meetingNameInput" } })
+            </div>
+
+            <!-- 講師姓名 -->
+            <div class="horizontal-item" style="flex: 1;">
+                <label for="lecturerNameInput">講師姓名</label>
+                @Html.EditorFor(m => m.Meeting.LECTURER, new { htmlAttributes = new { @class = "form-control", @id = "lecturerNameInput" } })
+            </div>
+
+            <!-- 開始時間 -->
+            <div class="horizontal-item" style="flex: 1;">
+                <label for="meetingStartInput">開始時間</label>
+                <input type="text" id="meetingStartInput" class="form-control" name="Meeting.MEETING_START"
+                       value="@Model.Meeting.MEETING_START?.ToString(" yyyy-MM-dd HH:mm")" />
+            </div>
+
+            <!-- 結束時間 -->
+            <div class="horizontal-item" style="flex: 1;">
+                <label for="meetingEndInput">結束時間</label>
+                <input type="text" id="meetingEndInput" class="form-control" name="Meeting.MEETING_END"
+                       value="@Model.Meeting.MEETING_END?.ToString(" yyyy-MM-dd HH:mm")" />
+            </div>
+
+            <!-- 保存會議資料 -->
+            <div class="horizontal-item" style="flex: 1;">
+                <label>&nbsp;</label>
+                <button type="button" class="btn btn-success form-control" onclick="updateMeeting()">
+                    保存會議資料
+                </button>
+            </div>
+        </div>
+
+        <hr style="border: 1px solid lightgray;" />
+
+        @*<!-- 群組搜尋&群組選擇區塊 (對應RCS_GROUP) -->
+        <div class="form-group horizontal-group" style="display: flex; justify-content: flex-start; gap: 20px; margin-bottom: 20px;">
+            <!-- 搜尋群組名稱輸入框 -->
+            <div class="horizontal-item" style="flex: 1;">
+                <label for="groupNameFilter">搜尋群組名稱</label>
+                <input type="text" id="groupNameFilter" class="form-control" placeholder="請輸入關鍵字..." />
+            </div>
+
+            <!-- 搜尋按鈕 -->
+            <div class="horizontal-item" style="flex: 1;">
+                <label>&nbsp;</label>
+                <button type="button" class="btn btn-primary form-control" style="width:100px; margin-top:35px;" onclick="searchGroups()">搜尋</button>
+            </div>
+
+            <div class="horizontal-item" style="flex: 1;">
+                <label>&nbsp;</label>
+                <button type="button" class="btn btn-info form-control" style="width:150px; margin-top:35px;" onclick="addGroupToMeeting()">加入此群組至會議</button>
+            </div>
+        </div>*@
+
+        <!-- 區塊二：會議組別 (RCS_MEETING_GROUP) 新增/刪除 -->
+        <h3><strong>建立會議組別</strong></h3>
+        <div class="form-group meeting-group" style="display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-end;">
+            <!-- 輸入框：自訂會議組別名稱 -->
+            <div class="meeting-group-item">
+                <label for="newMeetingGroupName">會議組別</label>
+                <input type="text" id="newMeetingGroupName" class="form-control" placeholder="輸入新的會議組別" />
+            </div>
+
+            <!-- 按鈕：新增會議組別 -->
+            <div class="meeting-group-item">
+                <label>&nbsp;</label>
+                <button type="button" class="btn btn-success form-control" onclick="createMeetingGroup()">
+                    新增會議組別
+                </button>
+            </div>
+
+            <!-- 下拉選單：已有的會議組別 -->
+            <div class="meeting-group-item">
+                <label for="meetingGroupSelect">選擇會議組別</label>
+                <select id="meetingGroupSelect" class="form-control">
+                    <option value="">請選擇會議組別</option>
+                    @* 範例：依 Model.MeetingGroupsList (需要您在後端填入) *@
+                    @if (Model.MeetingGroupsList != null && Model.MeetingGroupsList.Any())
+                    {
+                        foreach (var mg in Model.MeetingGroupsList)
+                        {
+                            <option value="@mg.AUTO_ID">@mg.GROUP_NAME</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <!-- 按鈕：刪除會議組別 -->
+            <div class="meeting-group-item">
+                <label>&nbsp;</label>
+                <button type="button" class="btn btn-danger form-control" onclick="deleteMeetingGroup()">
+                    刪除會議組別
+                </button>
+            </div>
+        </div>
+
+
+
+        <hr style="border: 1px solid lightgray;" />
+
+        <!-- 區塊三：常用群組名 (RCS_GROUP) 分配到 會議組別 (RCS_MEETING_GROUP) -->
+        <h3><strong>常用群組分配</strong></h3>
+        <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+
+            <!-- 搜尋群組名稱輸入框 -->
+            <div style="flex: 1;">
+                <label for="groupNameFilter">搜尋常用群組名稱</label>
+                <input type="text" id="groupNameFilter" class="form-control" placeholder="請輸入關鍵字..." />
+            </div>
+
+            <!-- 搜尋按鈕 -->
+            <div style="flex: 1;">
+                <label>&nbsp;</label>
+                <button type="button" class="btn btn-primary form-control" style="" onclick="searchGroups()">
+                    搜尋
+                </button>
+            </div>
+
+
+            <!-- 下拉選單：會議組別 (RCS_MEETING_GROUP) -->
+            <div style="flex: 1;">
+                <label for="meetingGroupSelect2">先選擇會議組別</label>
+                <select id="meetingGroupSelect2" class="form-control">
+                    <option value="">請選擇會議組別</option>
+                    @* 同樣可以 Model.MeetingGroupsList *@
+                    @if (Model.MeetingGroupsList != null && Model.MeetingGroupsList.Any())
+                    {
+                        foreach (var mg in Model.MeetingGroupsList)
+                        {
+                            <option value="@mg.AUTO_ID">@mg.GROUP_NAME</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <!-- 下拉選單：常用群組 (RCS_GROUP) -->
+            <div style="flex: 1;">
+                <label for="dailyGroupSelect">再選擇常用群組</label>
+                <select id="dailyGroupSelect" class="form-control">
+                    <option value="">請選擇常用群組</option>
+                    @* 範例：依 Model.DailyGroupList (後端填入) *@
+                    @if (Model.DailyGroupList != null && Model.DailyGroupList.Any())
+                    {
+                        foreach (var g in Model.DailyGroupList)
+                        {
+                            <option value="@g.AUTO_ID">@g.GROUP_NAME</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <!-- 按鈕：將常用群組分配到會議組別 -->
+            <div style="flex: 1;">
+                <label>&nbsp;</label>
+                <button type="button" class="btn btn-info form-control" onclick="assignDailyGroupToMeetingGroup()">
+                    加入常用群組至會議組別
+                </button>
+            </div>
+        </div>
+
+        <hr style="border: 1px solid lightgray;" />
+
+        <!-- 區塊四：新增單獨成員 -->
+        <h3><strong>新增單獨成員</strong></h3>
+        <div class="form-group horizontal-group" style="display: flex; flex-wrap: wrap; gap: 20px;">
+
+            <!-- 中間: 使用者自行輸入員工姓名，用於「新增」 -->
+            <div style="flex: 1; width: 200px; margin-top: 24px; ">
+                <input type="text" id="searchEmpName" class="form-control" placeholder="請輸入員工姓名" />
+            </div>
+
+            <div style="flex: 1; width: 200px; margin-top: 24px; ">
+                <button type="button" class="btn btn-primary form-control" onclick="searchEmployees()">搜尋</button>
+            </div>
+
+            <!-- 右側: 下拉 - 選擇要放到哪個會議組別 (RCS_MEETING_GROUP) -->
+            <div style="flex: 1; width: 200px; ">
+                <label for="singleMemberMeetingGroupSelect">會議組別</label>
+                <select id="singleMemberMeetingGroupSelect" class="form-control">
+                    <option value="">請選擇會議組別</option>
+                    @if (Model.MeetingGroupsList != null && Model.MeetingGroupsList.Any())
+                    {
+                        foreach (var mg in Model.MeetingGroupsList)
+                        {
+                            <option value="@mg.AUTO_ID">@mg.GROUP_NAME</option>
+                        }
+                    }
+                </select>
+            </div>
+            <div style="flex: 1; width: 200px; margin-top: 24px; ">
+                <!-- 新增成員按鈕 -->
+                <button type="button" class="btn btn-success form-control" onclick="addSelectedEmployees()">新增成員</button>
+            </div>
+        </div>
+
+        <!-- Modal - 用於確認是否將該員工加入到指定組別 -->
+        <div class="modal fade" id="confirmAddMemberModal" tabindex="-1" role="dialog" aria-labelledby="confirmAddMemberModalTitle" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">確認加入成員</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <p>員工姓名：<span id="modal-empName"></span></p>
+                        <p>員工編號：<span id="modal-empNumber"></span></p>
+                        <p>是否確認將此員工加入 <span id="modal-meetingGroupName"></span> 組別？</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+                        <button type="button" class="btn btn-primary" onclick="confirmAddMemberToGroup()">確認</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="max-height: 500px; overflow-y: auto;">
+            <table class="table table-bordered table-centered" id="employeeSearchGrid">
+                <thead>
+                    <tr>
+                        <th>選擇</th>
+                        <th>員工編號</th>
+                        <th>姓名</th>
+                        <th>部門</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- 這裡的內容將由 JavaScript 動態插入 -->
+                </tbody>
+            </table>
+        </div>
+
+
+
+
+        <hr style="border: 1px solid lightgray;" />
+
+        <!-- 第一個 Datagrid: 會議組別 + RCS_GROUP 篩選出來的所有員工(含整組匯入 + 單獨加入) -->
+        <h3><strong>與會人員名單 (從常用群組新增)</strong></h3>
+        <div class="form-group horizontal-group" style="display: flex; gap: 20px; margin-bottom: 10px;">
+            <!-- 下拉1: 選擇會議組別篩選 -->
+            <div style="flex: 1;">
+                <label for="filterMeetingGroup">已加入的會議組別</label>
+                <select id="filterMeetingGroup" class="form-control custom-width" onchange="onMeetingGroupChange()">
+                    <option value="">(全部會議組別)</option>
+                    @if (Model.MeetingGroupsList != null && Model.MeetingGroupsList.Any())
+                    {
+                        foreach (var mg in Model.MeetingGroupsList)
+                        {
+                            <option value="@mg.AUTO_ID">@mg.GROUP_NAME</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <div style="flex: 1;">
+                <label>&nbsp;</label>
+                <button type="button" class="btn btn-success form-control" onclick="downloadSignInSheet()">
+                    下載簽到表
+                </button>
+            </div>
+
+            <!-- 下拉2: 選擇常用群組(RCS_GROUP)篩選 -->
+            <div style="flex: 1;">
+                <label for="filterDailyGroup">已加入的常用群組</label>
+                <select id="filterDailyGroup" class="form-control" onchange="filterMemberGrid1()">
+                    <option value="">(全部常用群組)</option>
+                    @if (Model.UsedDailyGroupList != null && Model.UsedDailyGroupList.Any())
+                    {
+                        foreach (var g in Model.UsedDailyGroupList)
+                        {
+                            <option value="@g.AUTO_ID">@g.GROUP_NAME</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <!-- 按鈕: 刪除此群組(把某個RCS_GROUP整組移除) -->
+            <div style="flex: 1;">
+                <label>&nbsp;</label>
+                <button type="button" class="btn btn-danger form-control" onclick="removeAllocatedGroup()">
+                    刪除此常用群組
+                </button>
+            </div>
+        </div>
+
+        <!-- datagrid1 -->
+        <div style="max-height: 500px; overflow-y: auto;">
+            <table class="table table-bordered table-centered" id="memberGrid1">
+                <thead>
+                    <tr>
+                        <th>員工編號</th>
+                        <th>姓名</th>
+                        <th>航線</th>
+                        <th>職務</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="5">尚無資料</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <hr />
+
+        <!-- 第二個 Datagrid: 只列出「單獨加入的成員」，可編輯/刪除 -->
+        <h3><strong>與會人員名單(單獨新增的成員)</strong></h3>
+        <div class="form-group horizontal-group" style="margin-left:5px;">
+            <label for="filterSingleMemberMeetingGroup">篩選會議組別</label>
+            <select id="filterSingleMemberMeetingGroup" class="form-control" onchange="filterSingleMemberGrid()">
+                <option value="">(全部會議組別)</option>
+                @if (Model.MeetingGroupsList != null && Model.MeetingGroupsList.Any())
+                {
+                    foreach (var mg in Model.MeetingGroupsList)
+                    {
+                        <option value="@mg.AUTO_ID">@mg.GROUP_NAME</option>
+                    }
+                }
+            </select>
+        </div>
+        <div style="max-height: 500px; overflow-y: auto;">
+            <table class="table table-bordered table-centered" id="singleMemberGrid">
+                <thead>
+                    <tr>
+                        <th>員工編號</th>
+                        <th>姓名</th>
+                        <th>航線</th>
+                        <th>職務</th>
+                        <th>動作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.SingleMembers != null && Model.SingleMembers.Any())
+                    {
+                        foreach (var member in Model.SingleMembers)
+                        {
+                            <tr>
+                                <td>@member.EmpNumber</td>
+                                <td>@member.EmpName</td>
+                                <td>@member.Department</td>
+                                <td>@member.Position</td>
+                                <td>
+                                    <button class="btn btn-danger remove-btn" data-emp-id="@member.EmpId">刪除</button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="6">尚無資料</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 返回會議記錄按鈕 -->
+        <div style="text-align: right; margin-top: 20px;">
+            <button type="button" class="btn btn-warning" onclick="redirectToMeetingRecords()">返回會議記錄</button>
+        </div>
+    </div>
+}
+
+
+@section Scripts {
+    @Scripts.Render("~/bundles/jqueryval")
+
+<script type="text/javascript">
+        document.addEventListener('DOMContentLoaded', function () {
+            var meetingStart = '@(Model.Meeting.MEETING_START.HasValue ? Model.Meeting.MEETING_START.Value.ToString("yyyy-MM-dd HH:mm") : "")';
+            var meetingEnd = '@(Model.Meeting.MEETING_END.HasValue ? Model.Meeting.MEETING_END.Value.ToString("yyyy-MM-dd HH:mm") : "")';
+
+            flatpickr("#meetingStartInput", {
+                enableTime: true,
+                time_24hr: true,
+                locale: "zh_tw",
+                dateFormat: "Y-m-d H:i",
+                defaultDate: meetingStart
+            });
+
+            flatpickr("#meetingEndInput", {
+                enableTime: true,
+                time_24hr: true,
+                locale: "zh_tw",
+                dateFormat: "Y-m-d H:i",
+                defaultDate: meetingEnd
+            });
+            // 綁定編輯按鈕
+            $(document).on('click', '.edit-btn', function () {
+                var empId = $(this).data('emp-id');
+                editSingleMember(empId);
+            });
+
+            // 綁定刪除按鈕
+            $(document).on('click', '.remove-btn', function () {
+                var empId = $(this).data('emp-id');
+                removeSingleMember(empId);
+            });
+            onMeetingGroupChange();
+            filterSingleMemberGrid();
+        });
+
+        // 顯示Modal
+        function showModal(message, duration = 3000) {
+            document.getElementById('alertModalBody').innerText = message;
+
+            setTimeout(function () {
+                $('#alertModal').modal('show');
+                setTimeout(function () {
+                    $('#alertModal').modal('hide');
+                }, duration);
+            }, 200);
+        }
+
+        // 返回會議記錄頁面
+        function redirectToMeetingRecords() {
+            var today = new Date();
+            var year = today.getFullYear();
+            var month = String(today.getMonth() + 1).padStart(2, '0');
+            var day = String(today.getDate()).padStart(2, '0');
+            var hours = '00';
+            var minutes = '00';
+
+            var searchStart = `${year}-${month}-${day} ${hours}:${minutes}`;
+            window.location.href = '@Url.Action("Index", "RCS_MEETING")' + '?searchStart=' + encodeURIComponent(searchStart);
+        }
+
+
+        //搜尋常用群組 (RCS_GROUP)
+        function searchGroups() {
+            var keyword = $('#groupNameFilter').val();
+            $.ajax({
+                url: '@Url.Action("SearchGroup", "RCS_MEETING")',
+                type: 'GET',
+                data: { keyword: keyword },
+                success: function (data) {
+                    $('#dailyGroupSelect').empty();
+                    $('#dailyGroupSelect').append('<option value="">請選擇群組</option>');
+                    if (data && data.length > 0) {
+                        $.each(data, function (i, group) {
+                            $('#dailyGroupSelect').append(
+                                `<option value="${group.AUTO_ID}">${group.GROUP_NAME}</option>`
+                            );
+                        });
+                    }
+                },
+                error: function () {
+                    showModal("搜尋群組發生錯誤。");
+                }
+            });
+        }
+
+        //刪除某個成員(帶上 meetingGroupId)
+        var memberToDeleteId = null;
+        var meetingGroupIdToDelete = null;
+
+        function removeMember(memberId, meetingGroupId) {
+            memberToDeleteId = memberId;
+            meetingGroupIdToDelete = meetingGroupId;
+            $('#confirmDeleteModal').modal('show');
+        }
+
+        // 確認刪除
+        document.getElementById('confirmDeleteBtn').addEventListener('click', function () {
+            if (memberToDeleteId && meetingGroupIdToDelete) {
+                $.post('@Url.Action("RemoveMember", "RCS_MEETING")',
+                    {
+                        memberId: memberToDeleteId,
+                        meetingGroupId: meetingGroupIdToDelete
+                    },
+                    function (data) {
+                        if (data.success) {
+                            $('#confirmDeleteModal').modal('hide');
+                            location.reload();
+                        } else {
+                            $('#confirmDeleteModal').modal('hide');
+                            showModal("刪除失敗");
+                        }
+                    }
+                );
+            }
+        });
+
+        //編輯成員
+        function editMember(memberName, groupName, memberId) {
+            $('#originalMemberName').val(memberName);
+            $('#originalGroupName').val(groupName);
+            $('#newMemberName').val(memberName);
+            $('#newGroupName').val(groupName);
+            $('#editingMemberId').val(memberId);
+        }
+
+        //新增/修改成員
+        @*function addOrUpdateMember() {
+            var memberName = $('#newMemberName').val();
+            var groupName = $('#newGroupName').val();
+            var editingMemberId = $('#editingMemberId').val();
+
+            // 先檢查成員名稱
+            if (!memberName) {
+                ("請輸入成員名稱");
+                return;
+            }
+
+            // if (!groupName) {
+            //     showModal("請輸入組別名稱");
+            //     return;
+            // }
+
+            $.ajax({
+                url: '@Url.Action("AddOrUpdateMember", "RCS_MEETING")',
+                type: 'POST',
+                data: {
+                    meetingId: '@Model.Meeting.AUTO_ID',
+                    memberName: memberName,
+                    groupName: groupName,
+                    editingMemberId: editingMemberId
+                },
+                success: function (data) {
+                    if (data.success) {
+                        showModal("新增/更改成員資料成功！");
+                        setTimeout(function () {
+                            location.reload();
+                        }, 2000);
+                    } else {
+                        showModal("操作失敗: " + data.message);
+                    }
+                },
+                error: function () {
+                    showModal("操作發生錯誤");
+                }
+            });
+        }*@
+
+
+        //更新會議
+        function updateMeeting() {
+        var meetingId     = '@Model.Meeting.AUTO_ID';
+        var meetingName   = $('#meetingNameInput').val();
+        var lecturerName  = $('#lecturerNameInput').val();
+        var meetingStart  = $('#meetingStartInput').val();
+        var meetingEnd    = $('#meetingEndInput').val();
+
+            if (!meetingName || !lecturerName || !meetingStart || !meetingEnd) {
+                alert("請確認會議名稱、講師名稱、開始時間、結束時間都有填寫！");
+                return;
+            }
+
+        $.ajax({
+            url: '@Url.Action("UpdateMeeting", "RCS_MEETING")',
+            type: 'POST',
+            data: {
+                meetingId: meetingId,
+                meetingName: meetingName,
+                lecturerName: lecturerName,
+                meetingStart: meetingStart,
+                meetingEnd: meetingEnd
+            },
+            success: function (res) {
+                if (res.success) {
+                    alert("會議資料更新成功！");
+                    location.reload();
+                } else {
+                    alert("更新失敗：" + res.message);
+                }
+            },
+            error: function () {
+                alert("發生錯誤，請稍後再試。");
+            }
+        });
+    }
+    function createMeetingGroup() {
+        // 從輸入框取得新組別名稱
+        var newGroupName = $('#newMeetingGroupName').val();
+        if (!newGroupName) {
+            alert("請輸入會議組別名稱");
+            return;
+        }
+        var meetingId = '@Model.Meeting.AUTO_ID';
+
+        $.ajax({
+            url: '@Url.Action("CreateMeetingGroup", "RCS_MEETING")',
+            type: 'POST',
+            data: {
+                meetingId: meetingId,
+                groupName: newGroupName
+            },
+            success: function (res) {
+                if (res.success) {
+                    alert("已新增會議組別：" + newGroupName);
+                    // 可選擇重新整理 or 部分更新下拉
+                    location.reload();
+                } else {
+                    alert("新增失敗：" + res.message);
+                }
+            },
+            error: function () {
+                alert("發生錯誤，請稍後再試。");
+            }
+        });
+    }
+    function deleteMeetingGroup() {
+        // 從下拉選單取使用者要刪除的會議組別 ID
+        var mgId = $('#meetingGroupSelect').val();
+        if (!mgId) {
+            alert("請先選擇要刪除的會議組別！");
+            return;
+        }
+
+        $.ajax({
+            url: '@Url.Action("DeleteMeetingGroup", "RCS_MEETING")',
+            type: 'POST',
+            data: {
+                meetingGroupId: mgId
+            },
+            success: function (res) {
+                if (res.success) {
+                    alert("已刪除該會議組別");
+                    location.reload();
+                } else {
+                    alert("刪除失敗：" + res.message);
+                }
+            },
+            error: function () {
+                alert("發生錯誤，請稍後再試。");
+            }
+        });
+    }
+    function assignDailyGroupToMeetingGroup() {
+    var dailyGroupId = $('#dailyGroupSelect').val();
+    var meetingGroupId = $('#meetingGroupSelect2').val();
+    if (!dailyGroupId || !meetingGroupId) {
+        alert("請先選擇 常用群組 與 會議組別！");
+        return;
+    }
+
+    $.ajax({
+        url: '@Url.Action("AssignDailyGroupToMeetingGroup", "RCS_MEETING")',
+        type: 'POST',
+        data: {
+            dailyGroupId: dailyGroupId,
+            meetingGroupId: meetingGroupId
+        },
+        success: function (res) {
+            if (res.success) {
+                alert("已將常用群組分配到會議組別！");
+                location.reload();
+            } else {
+                alert("操作失敗：" + res.message);
+            }
+        },
+        error: function () {
+            alert("發生錯誤，請稍後再試。");
+        }
+    });
+}
+
+
+    function addOrUpdateSingleMember() {
+        var empId = $('#newEmpSelect').val();
+        var mgId  = $('#singleMemberMeetingGroupSelect').val();
+
+        if (!empId || !mgId) {
+            alert("請選擇員工與會議組別！");
+            return;
+        }
+
+        // var editingMemberId = $('#editingMemberId').val();
+        // 若無 => 只做新增
+
+        $.ajax({
+            url: '@Url.Action("AddOrUpdateSingleMember", "RCS_MEETING")',
+            type: 'POST',
+            data: {
+                empId: empId,
+                meetingGroupId: mgId
+                // editingMemberId: editingMemberId
+            },
+            success: function (res) {
+                if (res.success) {
+                    alert("新增/修改成功！");
+                    location.reload();
+                } else {
+                    alert("操作失敗：" + res.message);
+                }
+            },
+            error: function () {
+                alert("發生錯誤，請稍後再試。");
+            }
+        });
+    }
+
+    function filterMemberGrid1() {
+    var filterMgId = $('#filterMeetingGroup').val();
+    var filterGId  = $('#filterDailyGroup').val();
+
+    var meetingId  = $('#Meeting_AUTO_ID').val(); // 從 hidden field 取值
+
+    $.get('@Url.Action("FilterMeetingMembers", "RCS_MEETING")',
+    {
+        meetingId: meetingId,
+        meetingGroupId: filterMgId,
+        dailyGroupId: filterGId
+    },
+        function (res) {
+            // 後端回傳 JSON: { success: bool, data: array }
+            if (!res.success) {
+                alert("篩選失敗" + (res.message ? ": " + res.message : ""));
+                return;
+            }
+
+            var data = res.data;   // array
+            var html = "";
+            if (!data || data.length === 0) {
+                html = '<tr><td colspan="5">尚無資料</td></tr>';
+            } else {
+                // data 裡的每筆 => { MemberAutoId, MeetingGroupId, EmpId, EmpNumber, EmpName, Department, Position }
+                for (var i = 0; i < data.length; i++) {
+                    var item = data[i];
+                    html += '<tr>' +
+                        '  <td>' + (item.EmpNumber || '') + '</td>' +
+                        '  <td>' + (item.EmpName || '') + '</td>' +
+                        '  <td>' + (item.Department || '') + '</td>' +
+                        '  <td>' + (item.Position || '') + '</td>' +
+                        '</tr>';
+                }
+            }
+            $('#memberGrid1 tbody').html(html);
+        }
+    ).fail(function () {
+        alert("篩選發生錯誤");
+    });
+}
+
+
+
+    function removeAllocatedGroup() {
+    // 把該常用群組從該會議組別中移除
+    var filterMgId = $('#filterMeetingGroup').val(); // 會議組別的值
+    var filterGId = $('#filterDailyGroup').val();   // 常用群組的值
+    if (!filterMgId || !filterGId) {
+        alert("請先選擇 會議組別 與 常用群組，再執行『刪除此群組』！");
+        return;
+    }
+
+    $.ajax({
+        url: '@Url.Action("RemoveAllocatedGroup", "RCS_MEETING")',
+        type: 'POST',
+        data: {
+            meetingGroupId: filterMgId,
+            dailyGroupId: filterGId
+        },
+        success: function (res) {
+            if (res.success) {
+                alert("已移除該常用群組與會議組別的對應！");
+
+                // 設置 "常用群組" 回到預設值 (全部常用群組)
+                $('#filterDailyGroup').val("");
+
+                // 更新常用群組下拉選單
+                loadUsedDailyGroupByMeetingGroup(filterMgId).then(function () {
+                    // 重新篩選 DataGrid
+                    filterMemberGrid1();
+                });
+            } else {
+                alert("移除失敗：" + res.message);
+            }
+        },
+        error: function () {
+            alert("發生錯誤，請稍後再試。");
+        }
+    });
+}
+
+
+    function reloadPageData(filterMgId, filterGId) {
+        // 重新加載常用群組下拉選單
+        loadUsedDailyGroupByMeetingGroup(filterMgId).then(function () {
+            // 恢復常用群組下拉選單的選擇
+            $('#filterDailyGroup').val(filterGId);
+
+            // 重新篩選 DataGrid
+            filterMemberGrid1();
+        });
+
+        // 恢復會議組別的選擇
+        $('#filterMeetingGroup').val(filterMgId);
+    }
+    function checkEmployeeNameAndShowModal() {
+        var memberName = $('#newMemberName').val();
+        var mgId = $('#singleMemberMeetingGroupSelect').val();
+        if (!memberName) {
+            alert("請輸入員工姓名！");
+            return;
+        }
+        if (!mgId) {
+            alert("請先選擇會議組別！");
+            return;
+        }
+
+        // 呼叫後端 CheckEmployeeName
+        $.ajax({
+            url: '@Url.Action("CheckEmployeeName", "RCS_MEETING")',
+            type: 'GET',
+            data: { empName: memberName },
+            success: function(res) {
+                if (res.success) {
+                    // res 中應該帶回 EmpId, EmpNumber, EmpName
+                    var data = res.data;
+                    // 顯示在 modal 上
+                    $('#modal-empName').text(data.empName);
+                    $('#modal-empNumber').text(data.empNumber);
+                    // 順便紀錄下來, confirmAddMemberToGroup 會用
+                    window.tempSelectedEmpId = data.empId;
+                    window.tempSelectedEmpName= data.empName;
+                    window.tempSelectedEmpNumber= data.empNumber;
+                    window.tempMeetingGroupId = mgId;
+                    var mgText = $('#singleMemberMeetingGroupSelect option:selected').text();
+                    $('#modal-meetingGroupName').text(mgText);
+
+                    // 顯示 modal
+                    $('#confirmAddMemberModal').modal('show');
+                } else {
+                    // 查無此人
+                    alert(res.message || "查無該員工姓名");
+                }
+            },
+            error: function() {
+                alert("檢查員工發生錯誤，請稍後再試。");
+            }
+        });
+    }
+
+    // 在 modal 上按「確認」後，真正將員工加入 / 新增
+    function confirmAddMemberToGroup() {
+        var empId = window.tempSelectedEmpId;
+        var mgId  = window.tempMeetingGroupId;
+        if (!empId || !mgId) {
+            alert("資訊不完整，無法加入");
+            return;
+        }
+
+        $.ajax({
+            url: '@Url.Action("AddOrUpdateSingleMember", "RCS_MEETING")',
+            type: 'POST',
+            data: {
+                empId: empId,
+                meetingGroupId: mgId
+            },
+            success: function(res) {
+                if (res.success) {
+                    alert("已加入該員工");
+                    $('#confirmAddMemberModal').modal('hide');
+                    location.reload();
+                } else {
+                    alert("加入失敗：" + res.message);
+                }
+            },
+            error: function() {
+                alert("發生錯誤，請稍後再試");
+            }
+        });
+    }
+
+    function onMeetingGroupChange() {
+    var mgId = $('#filterMeetingGroup').val();
+    // 先載入該 mgId 真正用過的常用群組 => 塞到 "filterDailyGroup"
+    loadUsedDailyGroupByMeetingGroup(mgId)
+    .then(function() {
+        // 再呼叫 filterMemberGrid1 去撈 DataGrid
+        filterMemberGrid1();
+    });
+}
+
+function loadUsedDailyGroupByMeetingGroup(mgId) {
+    return new Promise(function(resolve, reject) {
+        if (!mgId) {
+            // 若沒選擇清空dailyGroup
+            $('#filterDailyGroup').html('<option value="">(全部常用群組)</option>');
+            resolve();
+            return;
+        }
+
+        $.get('@Url.Action("GetUsedDailyGroupByMeetingGroup","RCS_MEETING")',
+        { meetingGroupId: mgId },
+        function(res) {
+            if (!res.success) {
+                alert("載入群組失敗" + (res.message ? (": " + res.message) : ""));
+                reject();
+                return;
+            }
+
+            var data = res.data;
+            var html = '<option value="">(全部常用群組)</option>';
+            if (data && data.length > 0) {
+                for(var i=0; i<data.length; i++) {
+                    var g = data[i];
+                    html += '<option value="'+ g.GroupId +'">'+ g.GroupName +'</option>';
+                }
+            }
+            $('#filterDailyGroup').html(html);
+            resolve();
+        }).fail(function(){
+            alert("載入群組時發生錯誤");
+            reject();
+        });
+    });
+    }
+    function editSingleMember(empId) {
+        event.preventDefault();
+        // 從伺服器獲取單一成員的詳細資料
+        $.get('@Url.Action("GetSingleMemberDetails", "RCS_MEETING")', { empId: empId, meetingId: $('#Meeting_AUTO_ID').val() }, function (res) {
+            if (!res.success) {
+                alert("無法載入成員資訊：" + (res.message || ""));
+                return;
+            }
+
+            var data = res.data;
+
+            // 將資料載入到右側的唯讀輸入框與下拉選單
+            $('#editingEmpId').val(data.EmpId);
+            $('#editingMemberName').val(data.EmpName);
+            $('#editingOriginalGroupName').val(data.OriginalGroupName);
+
+            // 預設選中該成員目前的會議組別
+            $('#meetingGroupSelect').val(data.MeetingGroupId);
+
+            // 顯示訊息
+            alert("已載入 " + data.EmpName + " 的資訊，可於右側修改組別");
+        }).fail(function () {
+            alert("讀取成員資訊發生錯誤，請稍後再試");
+        });
+    }
+
+    // 刪除成功後刷新表格
+    function removeSingleMember(empId) {
+    event.preventDefault();
+
+    $.post('@Url.Action("RemoveSingleMember", "RCS_MEETING")', {
+        empId: empId,
+        meetingId: $('#Meeting_AUTO_ID').val()
+    })
+    .done(function(res) {
+        if (res.success) {
+            alert("刪除成功！");
+            // 刪除成功後直接移除該成員的行
+            loadSingleMemberGrid(empId);
+        } else {
+            alert("刪除失敗：" + res.message);
+        }
+    })
+    .fail(function() {
+        alert("刪除操作發生錯誤");
+    });
+}
+
+    function loadSingleMemberGrid(empId) {
+    var row = $('#singleMemberGrid tbody').find('button[data-emp-id="' + empId + '"]').closest('tr');
+
+    if (row.length) {
+        // 移除該行
+        row.remove();
+
+        // 若刪除後表格無剩餘資料，則顯示 "尚無資料"
+        if ($('#singleMemberGrid tbody').children().length === 0) {
+            $('#singleMemberGrid tbody').html('<tr><td colspan="6">尚無資料</td></tr>');
+        }
+    }
+}
+
+
+
+    function filterSingleMemberGrid() {
+        var meetingId = $('#Meeting_AUTO_ID').val();
+        var meetingGroupId = $('#filterSingleMemberMeetingGroup').val(); // 取得會議組別的 ID
+
+        $.get('@Url.Action("FilterSingleMembers", "RCS_MEETING")', {
+            meetingId: meetingId,
+            meetingGroupId: meetingGroupId
+        },
+        function (res) {
+            if (!res.success) {
+                alert("篩選失敗：" + (res.message || ""));
+                return;
+            }
+
+            var data = res.data; // 後端返回的成員資料
+            var html = "";
+            if (!data || data.length === 0) {
+                html = '<tr><td colspan="5">尚無資料</td></tr>';
+            } else {
+                for (var i = 0; i < data.length; i++) {
+                    var member = data[i];
+                    html += '<tr>' +
+                            '  <td>' + (member.EmpNumber || '') + '</td>' +
+                            '  <td>' + (member.EmpName || '') + '</td>' +
+                            '  <td>' + (member.Department || '') + '</td>' +
+                            '  <td>' + (member.Position || '') + '</td>' +
+                            '  <td>' +
+                            '    <button class="btn btn-danger remove-btn" data-emp-id="' + member.EmpId + '">刪除</button>' +
+                            '  </td>' +
+                            '</tr>';
+                }
+            }
+            $('#singleMemberGrid tbody').html(html);
+        }).fail(function() {
+            alert("篩選發生錯誤，請稍後再試。");
+        });
+}
+
+    function downloadSignInSheet() {
+        var meetingGroupId = $('#filterMeetingGroup').val(); // 從下拉選單取值
+        if (!meetingGroupId) {
+            alert("請先選擇會議組別！");
+            return;
+        }
+
+        window.location.href = '@Url.Action("GenerateSignInSheet", "RCS_MEETING")' + '?meetingGroupId=' + meetingGroupId;
+    }
+
+    function redirectToMeetingRecords() {
+        window.location.href = '@Url.Action("Index", "RCS_MEETING")';
+    }
+
+    function searchEmployees() {
+        event.preventDefault();
+        const empName = document.getElementById("searchEmpName").value;
+
+        if (!empName) {
+            alert("請輸入員工姓名");
+            return;
+        }
+
+        $.ajax({
+            url: '/RCS_MEETING/SearchEmployees',
+            type: 'GET',
+            data: { empName },
+            success: function (response) {
+                if (response.success) {
+                    const tbody = document.querySelector("#employeeSearchGrid tbody");
+
+                    // 確認是否找到目標元素
+                    if (!tbody) {
+                        console.error("找不到 #employeeSearchGrid 的 <tbody>");
+                        alert("系統發生錯誤，請聯絡管理員");
+                        return;
+                    }
+
+                    tbody.innerHTML = ""; // 清空現有資料
+
+                    if (response.data.length > 0) {
+                        response.data.forEach(emp => {
+                            const row = `
+                                <tr>
+                                    <td>
+                                        <input type="checkbox" value="${emp.EmpId}" />
+                                    </td>
+                                    <td>${emp.EmpNumber}</td>
+                                    <td>${emp.EmpName}</td>
+                                    <td>${emp.Department}</td>
+                                </tr>`;
+                            tbody.innerHTML += row;
+                        });
+                    } else {
+                        tbody.innerHTML = `<tr>
+                            <td colspan="4">尚無資料</td>
+                        </tr>`;
+                    }
+                } else {
+                    alert(response.message);
+                }
+            },
+            error: function () {
+                alert("搜尋失敗，請稍後再試");
+            }
+        });
+    }
+    function addSelectedEmployees() {
+        event.preventDefault();
+        // 修正查詢選擇器為正確的表格 ID
+        const selectedIds = Array.from(document.querySelectorAll("#employeeSearchGrid tbody input[type='checkbox']:checked"))
+            .map(checkbox => parseInt(checkbox.value));
+
+        const meetingGroupId = document.getElementById("singleMemberMeetingGroupSelect").value;
+
+        if (selectedIds.length === 0) {
+            alert("請選擇至少一名員工");
+            return;
+        }
+
+        if (!meetingGroupId) {
+            alert("請選擇會議組別");
+            return;
+        }
+
+        $.ajax({
+            url: '/RCS_MEETING/AddSelectedEmployeesToMeeting',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ meetingGroupId, empIds: selectedIds }),
+            success: function (response) {
+                if (response.success) {
+                    alert(response.message);
+                    searchEmployees(); // 更新表格資料
+                    location.reload();
+                } else {
+                    alert(response.message);
+                }
+            },
+            error: function () {
+                alert("新增失敗，請稍後再試");
+            }
+        });
+    }
+
+
+
+</script>
+}
+

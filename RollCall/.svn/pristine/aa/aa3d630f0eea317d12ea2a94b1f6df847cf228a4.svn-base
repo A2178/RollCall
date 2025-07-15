@@ -1,0 +1,26 @@
+﻿@using (Html.BeginForm("Register", "Account", FormMethod.Post, new { @id = "registerForm" }))
+{
+    @Html.AntiForgeryToken()
+
+    <div>
+        <label>帳號：</label>
+        <input type="text" name="account" required />
+    </div>
+
+    <div>
+        <label>密碼：</label>
+        <input type="password" name="password" required />
+    </div>
+
+    <div>
+        <label>使用者名稱：</label>
+        <input type="text" name="userName" required />
+    </div>
+
+    <div>
+        <label>權限：</label>
+        <input type="text" name="permission" required />
+    </div>
+
+    <button type="submit">註冊</button>
+}

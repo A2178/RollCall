@@ -1,0 +1,155 @@
+﻿@model RollCall.Models.RaffleViewModel
+
+<title>@Model.MeetingName</title>
+
+<style>
+    .container > .container > * {
+        font-size: 24px;
+    }
+</style>
+
+<h1 style="text-align: left;"><strong>會議抽籤</strong></h1>
+
+<!-- 顯示會議資訊 -->
+<div class="container" style="margin: 0 auto; width:1600px;">
+    <div class="meeting-info" style="display: flex; max-width: 1600px; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; font-size: 20px; gap: 20px;">
+        <!-- 會議名稱 -->
+        <div style="flex: 1; text-align: left;">
+            <p><strong>會議名稱：</strong></p>
+            <p>@Model.MeetingName</p>
+        </div>
+
+        <!-- 開始時間 -->
+        <div style="flex: 1; text-align: left;">
+            <p><strong>開始時間：</strong></p>
+            <p>@Model.MeetingStartFormatted</p>
+        </div>
+
+        <!-- 結束時間 -->
+        <div style="flex: 1; text-align: left;">
+            <p><strong>結束時間：</strong></p>
+            <p>@Model.MeetingEndFormatted</p>
+        </div>
+
+        <!-- 當下時間 -->
+        <div style="flex: 1; text-align: left;">
+            <p><strong>當下時間：</strong></p>
+            <p id="current-time">@Model.CurrentTimeFormatted</p>
+        </div>
+    </div>
+
+    <!-- 顯示每個分組的抽籤按鈕和成員滾動效果 -->
+    <div class="raffle-groups" style="display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between;">
+        @foreach (var group in Model.GroupedMembers)
+        {
+        <div class="raffle-group" style="flex: 1 1 calc(33.33% - 20px); max-width: 1600px; text-align: center; border: 1px solid #d2e9ff; padding: 20px; box-sizing: border-box; ">
+            <h1>@group.GroupName</h1>
+            <h1 id="selected-member-name-@group.GroupName">按下抽籤開始...</h1>
+
+            <!-- 抽籤按鈕 -->
+            <button type="button" class="btn btn-primary" style="font-size: 22px;" onclick="startRaffle('@group.GroupName')"><strong>抽籤</strong></button>
+            <button type="button" class="btn btn-danger" style="display: none; font-size: 22px;" onclick="stopRaffle('@group.GroupName')"><strong>停止抽籤</strong></button>
+
+            <!-- 回合數顯示 -->
+            <div style="margin-top: 5px;">
+                <p><strong>回合數：</strong> <span id="round-count-@group.GroupName">@((Model.IsTestPeriod) ? 0 : TempData[$"CurrentRound_{group.GroupName}"])</span></p>
+            </div>
+        </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script type="text/javascript">
+    var memberNames = {};
+    var remainingMembers = {};  // 每組的剩餘成員，已經抽過的會被移除
+    var intervals = {};  // 存放每個分組的滾動間隔
+    var isTestPeriod = @(DateTime.Now < Model.MeetingStart ? "true" : "false");  // 判斷是否在測試時段
+
+    // 初始化成員列表
+    var groupedData = @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(Model.GroupedMembers.Select(group => new {
+        GroupName = group.GroupName,
+        Members = group.Members.Select(m => m.MEMBER_NAME).ToList()
+    }).ToList()));
+
+    groupedData.forEach(function(group) {
+        memberNames[group.GroupName] = group.Members;
+        remainingMembers[group.GroupName] = [...group.Members];
+    });
+
+    console.log("成員分組列表: ", remainingMembers);
+
+    // 更新當前時間的顯示
+    function updateCurrentTime() {
+        var now = new Date();
+        var formattedTime = now.getFullYear() + '-' +
+            (now.getMonth() + 1).toString().padStart(2, '0') + '-' +
+            now.getDate().toString().padStart(2, '0') + ' ' +
+            now.getHours().toString().padStart(2, '0') + ':' +
+            now.getMinutes().toString().padStart(2, '0') + ':' +
+            now.getSeconds().toString().padStart(2, '0');
+
+        document.getElementById('current-time').innerText = formattedTime;
+    }
+
+    // 每秒更新一次當前時間
+    setInterval(updateCurrentTime, 1000);
+    updateCurrentTime();  // 初始化時間
+
+    function startRaffle(groupName) {
+        console.log("開始抽籤: " + groupName);
+
+        if (remainingMembers[groupName].length === 0) {
+            window.alert(groupName + ' 無成員可以顯示，已抽取完畢！');
+            return;
+        }
+
+        // 切換按鈕狀態
+        document.querySelector(`button[onclick="startRaffle('${groupName}')"]`).style.display = 'none';
+        document.querySelector(`button[onclick="stopRaffle('${groupName}')"]`).style.display = 'inline-block';
+
+        // 開始滾動
+        intervals[groupName] = setInterval(function () {
+            var randomMember = remainingMembers[groupName][Math.floor(Math.random() * remainingMembers[groupName].length)];
+            document.getElementById('selected-member-name-' + groupName).innerText = randomMember;
+            console.log("滾動顯示成員: " + randomMember);
+        }, 20);  // 每 20 毫秒更新一次
+    }
+
+    function stopRaffle(groupName) {
+        clearInterval(intervals[groupName]);  // 停止滾動
+
+        var selectedMember = document.getElementById('selected-member-name-' + groupName).innerText;
+
+        $.post('@Url.Action("Draw", "Raffle")', {
+            guid: '@Model.MeetingGuid',
+            groupName: groupName,
+            selectedMember: selectedMember
+        }, function (response) {
+            if (response.success) {
+                // 更新顯示選中的成員
+                document.getElementById('selected-member-name-' + groupName).innerText = response.selectedMember;
+
+                // 更新回合數
+                if (isTestPeriod == true) {
+                    document.getElementById('round-count-' + groupName).innerText = 0;
+                    alert("此為時段為系統測試，不列入抽簽紀錄");
+                } else {
+                    document.getElementById('round-count-' + groupName).innerText = response.currentRound;
+                }
+
+                // 檢查是否所有成員都已抽取完
+                if (response.allDrawn) {
+                    window.alert("名單已經全部抽過，最後抽中的成員是: " + response.lastDrawnMember);
+                }
+            } else {
+                window.alert(response.message);
+            }
+        });
+
+        document.querySelector(`button[onclick="startRaffle('${groupName}')"]`).style.display = 'inline-block';
+        document.querySelector(`button[onclick="stopRaffle('${groupName}')"]`).style.display = 'none';
+    }
+
+    </script>
+}

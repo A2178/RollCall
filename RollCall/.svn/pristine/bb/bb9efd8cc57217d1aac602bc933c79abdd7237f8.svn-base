@@ -1,0 +1,35 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+
+namespace RollCall.Models
+{
+    public class RaffleViewModel
+    {
+        public string MeetingName { get; set; }
+        public DateTime? MeetingStart { get; set; }
+        public DateTime? MeetingEnd { get; set; }
+        public DateTime? CurrentTime { get; set; }
+        public int CurrentRound { get; set; }
+
+        public Guid MeetingGuid { get; set; }
+
+        public List<RCS_MEMBER> Members { get; set; }
+
+        // 分組後的成員信息
+        public List<GroupedRaffleViewModel> GroupedMembers { get; set; }
+
+        // 格式化顯示日期和時間
+        public string MeetingStartFormatted => MeetingStart.HasValue ? MeetingStart.Value.ToString("yyyy/MM/dd HH:mm:ss") : "無資料";
+        public string MeetingEndFormatted => MeetingEnd.HasValue ? MeetingEnd.Value.ToString("yyyy/MM/dd HH:mm:ss") : "無資料";
+        public string CurrentTimeFormatted => CurrentTime.HasValue ? CurrentTime.Value.ToString("yyyy/MM/dd HH:mm:ss") : "無資料";
+    }
+
+    public class GroupedRaffleViewModel
+    {
+        public string GroupName { get; set; }
+        public List<RCS_MEMBER> Members { get; set; }
+    }
+
+}

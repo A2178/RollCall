@@ -1,0 +1,95 @@
+﻿@model RollCall.Models.RCS_EMPLOYEES
+
+@{
+    ViewBag.Title = "Delete";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>刪除員工</h2>
+
+<h3>確定要刪除此員工嗎？</h3>
+<div>
+    <hr />
+    <dl class="dl-horizontal">
+
+        <dt>
+            員工姓名
+        </dt>
+        <dd>
+            @Html.DisplayFor(model => model.EMP_NAME)
+        </dd>
+
+        <dt>
+            職位
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.POSITION)
+        </dd>
+
+        <dt>
+            員工編號
+        </dt>
+        <dd>
+            @Html.DisplayFor(model => model.EMP_NUMBER)
+        </dd>
+
+        <dt>
+            部門
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.DEPARTMENT)
+        </dd>
+
+        <dt>
+            業務所屬部門
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.SALES_DEP_ID)
+        </dd>
+
+        <dt>
+            修改時間
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.MODIFY_TIME)
+        </dd>
+    </dl>
+    <!-- 隱藏員工 ID，讓 JS 可以讀取 -->
+    <input type="hidden" id="empId" value="@Model.AUTO_ID" />
+
+    <div class="form-actions no-color">
+        <button type="button" class="btn btn-danger" onclick="deleteEmployee()">刪除</button>
+        <a href="@Url.Action("Index")" class="btn btn-secondary">返回員工資料表</a>
+    </div>
+</div>
+
+<script>
+    function deleteEmployee() {
+        var empId = document.getElementById("empId").value;
+
+        if (!confirm("確定要刪除此員工嗎？(注意！確定此員工離職才使用，留停或建錯資料不要用，建錯資料請對該員使用【修改】功能)")) {
+            return;
+        }
+
+        $.ajax({
+            url: '/RCS_EMPLOYEES/DeleteConfirmed/' + empId,
+            type: 'POST',
+            headers: { 'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val() },
+            success: function (response) {
+                if (response.success) {
+                    alert("該員工已成功移除！");
+                    window.location.href = '/RCS_EMPLOYEES/Index'; // 跳轉回員工列表
+                } else {
+                    alert("刪除失敗：" + response.message);
+                }
+            },
+            error: function () {
+                alert("刪除時發生錯誤，請稍後再試！");
+            }
+        });
+    }
+</script>

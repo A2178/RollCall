@@ -1,0 +1,816 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Data.Entity;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Text;
+using System.Web;
+using System.Web.Mvc;
+using OfficeOpenXml;
+using RollCall.Models;
+using PagedList;
+using Serilog;
+using System.Threading.Tasks;
+using RollCall.Filters;
+
+namespace RollCall.Controllers
+{
+    public class RCS_MEETINGController : Controller
+    {
+        private TEST_RollCallDBEntities db = new TEST_RollCallDBEntities();
+
+        [AuthorizeFilter]
+        public ActionResult Index(int? page, string search, string searchStart, string searchEnd)
+        {
+            Log.Information("會議記錄頁面,使用者權限：{Permission}, 頁籤: {page}, 會議名稱: {search}, 開始時間: {searchStart}, 結束時間: {searchEnd}",
+                Session["Permission"],page, search, searchStart, searchEnd);
+
+
+
+            // 檢查 TempData，確保分頁時保持搜尋條件
+            search = TempData["SearchMeetingName"]?.ToString() ?? search;
+            searchStart = TempData["SearchMeetingStart"]?.ToString() ?? searchStart;
+            searchEnd = TempData["SearchMeetingEnd"]?.ToString() ?? searchEnd;
+
+            // 準備查詢資料
+            IQueryable<RCS_MEETING> meetings = db.RCS_MEETING.AsQueryable();
+
+            // 設定每頁顯示的資料數
+            int pageSize = 15;
+            int pageNumber = (page ?? 1);
+
+            // 如果沒有任何搜尋條件，視為首次進入頁面，預設搜尋今日 00:00 以後的會議
+            if (string.IsNullOrEmpty(search) && string.IsNullOrEmpty(searchStart) && string.IsNullOrEmpty(searchEnd))
+            {
+                DateTime todayStart = DateTime.Today;
+                searchStart = todayStart.ToString("yyyy-MM-dd HH:mm"); // 預設從今日 00:00 開始搜尋
+            }
+
+            // 根據會議名稱篩選
+            if (!string.IsNullOrEmpty(search))
+            {
+                meetings = meetings.Where(m => m.MEETING_NAME.Contains(search) && !m.IS_DELETED);
+            }
+
+            // 根據開始時間篩選
+            if (!string.IsNullOrEmpty(searchStart) && DateTime.TryParse(searchStart, out DateTime startTime))
+            {
+                meetings = meetings.Where(m => m.MEETING_START >= startTime && !m.IS_DELETED);
+            }
+
+            // 根據結束時間篩選
+            if (!string.IsNullOrEmpty(searchEnd) && DateTime.TryParse(searchEnd, out DateTime endTime))
+            {
+                meetings = meetings.Where(m => m.MEETING_END <= endTime && !m.IS_DELETED);
+            }
+
+            // 依開始時間排序
+            meetings = meetings.OrderBy(m => m.MEETING_START);
+
+            // 將查詢到的結果轉換成 IPagedList 類別
+            IPagedList<RCS_MEETING> pagedMeetings = meetings.ToPagedList(pageNumber, pageSize);
+
+            // 傳遞資料給 ViewModel
+            MeetingViewModel viewModel = new MeetingViewModel
+            {
+                MeetingList = pagedMeetings,
+                SearchMeetingName = search,
+                SearchMeetingStart = searchStart,
+                SearchMeetingEnd = searchEnd
+            };
+
+            Log.Information("會議記錄頁面執行結束,使用者權限：{Permission}, 頁籤: {page}, 會議名稱: {search}, 開始時間: {searchStart}, 結束時間: {searchEnd}",
+                Session["Permission"], page, search, searchStart, searchEnd);
+
+            return View(viewModel);
+        }
+
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<ActionResult> SearchOrCreate(MeetingViewModel viewModel, string action, HttpPostedFileBase ExcelFile)
+        {
+            Log.Information("搜尋或新增會議資料,使用者權限：{Permission}, 動作: {action}, 會議名稱: {meetingName}, 開始時間: {meetingStart}, 結束時間: {meetingEnd}",
+                Session["Permission"],
+                action,
+                viewModel.NewMeeting?.MEETING_NAME,
+                viewModel.NewMeeting?.MEETING_START,
+                viewModel.NewMeeting?.MEETING_END);
+
+            if (action == "search")
+            {
+                // 儲存輸入值到 ViewModel 以便回傳給前端顯示
+                viewModel.SearchMeetingName = viewModel.NewMeeting?.MEETING_NAME;
+                viewModel.SearchMeetingStart = viewModel.NewMeeting?.MEETING_START?.ToString("yyyy-MM-dd HH:mm");
+                viewModel.SearchMeetingEnd = viewModel.NewMeeting?.MEETING_END?.ToString("yyyy-MM-dd HH:mm");
+
+                // 儲存搜尋條件到 TempData，便於分頁操作使用
+                TempData["SearchMeetingName"] = viewModel.SearchMeetingName;
+                TempData["SearchMeetingStart"] = viewModel.SearchMeetingStart;
+                TempData["SearchMeetingEnd"] = viewModel.SearchMeetingEnd;
+
+                IQueryable<RCS_MEETING> meetings = db.RCS_MEETING.AsQueryable();
+
+                if (!string.IsNullOrEmpty(viewModel.NewMeeting.MEETING_NAME))
+                {
+                    meetings = meetings.Where(m => m.MEETING_NAME.Contains(viewModel.NewMeeting.MEETING_NAME) && !m.IS_DELETED);
+                }
+                if (viewModel.NewMeeting.MEETING_START.HasValue)
+                {
+                    meetings = meetings.Where(m => m.MEETING_START >= viewModel.NewMeeting.MEETING_START && !m.IS_DELETED);
+                }
+                if (viewModel.NewMeeting.MEETING_END.HasValue)
+                {
+                    meetings = meetings.Where(m => m.MEETING_END <= viewModel.NewMeeting.MEETING_END && !m.IS_DELETED);
+                }
+
+                viewModel.MeetingList = meetings.OrderBy(m => m.MEETING_START).ToPagedList(1, 15);
+
+                Log.Information("搜尋會議資料結束,使用者權限：{Permission}, 動作: {Action}, 會議名稱: {meetingName}, 開始時間: {meetingStart}, 結束時間: {meetingEnd}",
+                Session["Permission"],
+                action,
+                viewModel.NewMeeting?.MEETING_NAME,
+                viewModel.NewMeeting?.MEETING_START,
+                viewModel.NewMeeting?.MEETING_END);
+
+                return View("Index", viewModel);
+            }
+            else if (action == "create")
+            {
+                if (ModelState.IsValid)
+                {
+                    // 1. 查詢資料表中是否有重複的會議記錄
+                    RCS_MEETING existingMeeting = db.RCS_MEETING.FirstOrDefault(m =>
+                        m.MEETING_NAME == viewModel.NewMeeting.MEETING_NAME &&
+                        m.MEETING_START == viewModel.NewMeeting.MEETING_START);
+
+                    if (existingMeeting != null)
+                    {
+                        ModelState.AddModelError("", "已存在相同名稱和時間的會議。");
+                        return View("Index", viewModel);
+                    }
+
+                    // 2. 檢查是否上傳了人員名單Excel檔案
+                    if (ExcelFile == null || ExcelFile.ContentLength == 0)
+                    {
+                        ModelState.AddModelError("", "未上傳人員名單。");
+                        return View("Index", viewModel);
+                    }
+
+                    // 3. 建立會議記錄
+                    RCS_MEETING newMeeting = new RCS_MEETING
+                    {
+                        MEETING_NAME = viewModel.NewMeeting.MEETING_NAME,
+                        MEETING_START = viewModel.NewMeeting.MEETING_START,
+                        MEETING_END = viewModel.NewMeeting.MEETING_END,
+                        AUTO_GUID = Guid.NewGuid(),
+                        CREATE_BY = Session["Permission"].ToString(),
+                        CREATE_TIME = DateTime.Now,
+                        MODIFY_BY = Session["Permission"].ToString(),
+                        MODIFY_TIME = DateTime.Now,
+                        IS_ACTIVED = true,
+                        IS_DELETED = false
+                    };
+
+                    db.RCS_MEETING.Add(newMeeting);
+                    db.SaveChanges();
+
+                    // 4. 處理人員名單Excel並寫入資料庫
+                    if (ExcelFile != null && ExcelFile.ContentLength > 0)
+                    {
+                        using (ExcelPackage package = new ExcelPackage(ExcelFile.InputStream))
+                        {
+                            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+                            ExcelWorksheet worksheet = package.Workbook.Worksheets.First();
+                            int rowCount = worksheet.Dimension.Rows;
+                            int colCount = worksheet.Dimension.Columns;
+
+                            List<RCS_MEMBER> members = new List<RCS_MEMBER>();
+
+                            // 從第二列開始，讀取每一列的成員
+                            for (int col = 1; col <= colCount; col++)
+                            {
+                                string groupName = worksheet.Cells[1, col].Text.Trim(); // 第一行是表頭，也就是分組名
+
+                                for (int row = 2; row <= rowCount; row++)
+                                {
+                                    string memberName = worksheet.Cells[row, col].Text.Trim();
+                                    if (!string.IsNullOrEmpty(memberName))
+                                    {
+                                        members.Add(new RCS_MEMBER
+                                        {
+                                            MEETING_AUTO_ID = newMeeting.AUTO_ID,
+                                            MEMBER_NAME = memberName,
+                                            AUTO_GUID = Guid.NewGuid(),
+                                            GROUP_NAME = groupName,
+                                            CREATE_BY = Session["Permission"].ToString(),
+                                            CREATE_TIME = DateTime.Now,
+                                            MODIFY_BY = Session["Permission"].ToString(),
+                                            MODIFY_TIME = DateTime.Now,
+                                            IS_ACTIVED = true,
+                                            IS_DELETED = false
+                                        });
+                                    }
+                                }
+                            }
+                            db.RCS_MEMBER.AddRange(members);
+                            db.SaveChanges();
+                        }
+                    }
+                    Log.Information("新增會議資料結束,使用者權限：{Permission}, 動作: {action}, 會議名稱: {meetingName}, 開始時間: {meetingStart}, 結束時間: {meetingEnd}",
+                        Session["Permission"],
+                        action,
+                        viewModel.NewMeeting?.MEETING_NAME,
+                        viewModel.NewMeeting?.MEETING_START,
+                        viewModel.NewMeeting?.MEETING_END);
+
+                    await Task.Delay(2000);
+                    // 使用剛剛建立的會議條件來進行一次搜尋
+                    return RedirectToAction("Index", new
+                    {
+                        search = newMeeting.MEETING_NAME,
+                        searchStart = newMeeting.MEETING_START?.ToString("yyyy-MM-dd HH:mm"),
+                        searchEnd = newMeeting.MEETING_END?.ToString("yyyy-MM-dd HH:mm")
+                    });
+                }
+                return View("Index", viewModel);
+            }
+            return RedirectToAction("Index");
+        }
+
+
+        [HttpPost]
+        public ActionResult AddOrUpdateMember(long meetingId, string memberName, string groupName, long? editingMemberId)
+        {
+            string RequestIp = Request.UserHostAddress;
+            string serverMachineName = Environment.MachineName;
+            string requestMethod = Request.HttpMethod;
+            string requestUrl = Request.Url?.AbsoluteUri;
+            string requestUserAgent = Request.UserAgent;
+            string RequestHost = Request.UserHostAddress;
+            string requestReferrer = Request.UrlReferrer?.ToString();
+            string workMachine = Request.Url?.Host + ":" + Request.Url?.Port;
+            string requestHeaders = string.Join("; ", Request.Headers.AllKeys.Select(key => key + ": " + Request.Headers[key]));
+
+            Log.Information("新增或更新會議成員資料,使用者權限：{Permission}, 會議ID: {meetingId}, 成員名稱: {memberName}, 組別名稱: {groupName}, 被編輯成員ID: {editingMemberId}",
+                Session["Permission"],
+                meetingId,
+                memberName,
+                groupName,
+                editingMemberId);
+
+            if (string.IsNullOrEmpty(memberName))
+            {
+                Log.Error("新增或更新會議成員資料失敗！,使用者權限：{Permission}, 會議ID: {meetingId}, 成員名稱: {memberName}, 組別名稱: {groupName}, 被編輯成員ID: {editingMemberId}",
+                    Session["Permission"],
+                    meetingId,
+                    memberName,
+                    groupName,
+                    editingMemberId);
+                return Json(new { success = false, message = "成員名稱不可為空" });
+            }
+
+            if (string.IsNullOrEmpty(groupName))
+            {
+                groupName = "不分組";  //如果未填寫分組，預設填入"不分組"
+            }
+
+            if (editingMemberId.HasValue)
+            {
+                // 修改成員資料
+                RCS_MEMBER existingMember = db.RCS_MEMBER.FirstOrDefault(m => m.AUTO_ID == editingMemberId.Value && !m.IS_DELETED);
+                if (existingMember == null)
+                {
+                    Log.Error("更新會議成員資料失敗！,使用者權限：{Permission}, 會議ID: {meetingId}, 成員名稱: {memberName}, 組別名稱: {groupName}, 被編輯成員ID: {editingMemberId}",
+                        Session["Permission"],
+                        meetingId,
+                        memberName,
+                        groupName,
+                        editingMemberId);
+                    return Json(new { success = false, message = "成員未找到" });
+                }
+
+                existingMember.MEMBER_NAME = memberName;
+                existingMember.GROUP_NAME = groupName;
+                existingMember.MODIFY_BY = Session["Permission"].ToString();
+                existingMember.MODIFY_TIME = DateTime.Now;
+                db.Entry(existingMember).State = EntityState.Modified;
+            }
+            else
+            {
+                // 檢查成員是否已經存在，包含已被標記為刪除狀態的成員
+                RCS_MEMBER existingMember = db.RCS_MEMBER.FirstOrDefault(m => m.MEETING_AUTO_ID == meetingId && m.MEMBER_NAME == memberName);
+
+                if (existingMember != null)
+                {
+                    if (existingMember.IS_DELETED)
+                    {
+                        // 如果成員已被標記為刪除狀態，重啟該成員
+                        existingMember.IS_DELETED = false;
+                        existingMember.GROUP_NAME = groupName;
+                        existingMember.MODIFY_BY = Session["Permission"].ToString();
+                        existingMember.MODIFY_TIME = DateTime.Now;
+                        db.Entry(existingMember).State = EntityState.Modified;
+                    }
+                    else
+                    {
+                        Log.Error("新增會議成員資料失敗！,使用者權限：{Permission}, 會議ID: {meetingId}, 成員名稱: {memberName}, 組別名稱: {groupName}, 被編輯成員ID: {editingMemberId}",
+                            Session["Permission"],
+                            meetingId,
+                            memberName,
+                            groupName,
+                            editingMemberId);
+                        return Json(new { success = false, message = "該成員已經存在" });
+                    }
+                }
+                else
+                {
+                    // 新增成員
+                    RCS_MEMBER newMember = new RCS_MEMBER
+                    {
+                        MEETING_AUTO_ID = meetingId,
+                        MEMBER_NAME = memberName,
+                        GROUP_NAME = groupName,
+                        AUTO_GUID = Guid.NewGuid(),
+                        CREATE_BY = Session["Permission"].ToString(),
+                        CREATE_TIME = DateTime.Now,
+                        MODIFY_BY = Session["Permission"].ToString(),
+                        MODIFY_TIME = DateTime.Now,
+                        IS_ACTIVED = true,
+                        IS_DELETED = false
+                    };
+
+                    db.RCS_MEMBER.Add(newMember);
+                }
+            }
+            Log.Information("新增或更新會議成員資料結束,使用者權限：{Permission}, 會議ID: {meetingId}, 成員名稱: {memberName}, 組別名稱: {groupName}, 被編輯成員ID: {editingMemberId}",
+                Session["Permission"],
+                meetingId,
+                memberName,
+                groupName,
+                editingMemberId);
+
+            try
+            {
+                db.SaveChanges();
+                return Json(new { success = true });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "操作失敗: " + ex.Message });
+            }
+        }
+
+
+        [HttpPost]
+        [AuthorizeFilter]
+        public ActionResult RemoveMember(long memberId)
+        {
+            string RequestIp = Request.UserHostAddress;
+            string serverMachineName = Environment.MachineName;
+            string requestMethod = Request.HttpMethod;
+            string requestUrl = Request.Url?.AbsoluteUri;
+            string requestUserAgent = Request.UserAgent;
+            string RequestHost = Request.UserHostAddress;
+            string requestReferrer = Request.UrlReferrer?.ToString();
+            string workMachine = Request.Url?.Host + ":" + Request.Url?.Port;
+            string requestHeaders = string.Join("; ", Request.Headers.AllKeys.Select(key => key + ": " + Request.Headers[key]));
+
+            Log.Information("刪除成員,使用者權限：{Permission}, 被刪除成員ID: {memberId}",
+                Session["Permission"],
+                memberId);
+
+            // 查詢要刪除的成員
+            RCS_MEMBER member = db.RCS_MEMBER.FirstOrDefault(m => m.AUTO_ID == memberId);
+            if (member == null)
+            {
+                Log.Error("刪除成員失敗！,使用者權限：{Permission}, 被刪除成員ID: {memberId}",
+                    Session["Permission"],
+                    memberId);
+
+                return Json(new { success = false, message = "成員未找到" });
+            }
+
+            member.IS_DELETED = true;
+            member.MODIFY_BY = Session["Permission"].ToString();
+            member.MODIFY_TIME = DateTime.Now;
+            member.DELETE_BY = Session["Permission"].ToString();
+            member.DELETE_TIME = DateTime.Now;
+
+            // 保存更改
+            db.SaveChanges();
+
+            Log.Information("刪除成員結束,使用者權限：{Permission}, 被刪除成員ID: {memberId}",
+                Session["Permission"],
+                memberId);
+
+            return Json(new { success = true });
+        }
+
+        [AuthorizeFilter]
+        public ActionResult Edit(Guid? guid)
+        {
+            string RequestIp = Request.UserHostAddress;
+            string serverMachineName = Environment.MachineName;
+            string requestMethod = Request.HttpMethod;
+            string requestUrl = Request.Url?.AbsoluteUri;
+            string requestUserAgent = Request.UserAgent;
+            string RequestHost = Request.UserHostAddress;
+            string requestReferrer = Request.UrlReferrer?.ToString();
+            string workMachine = Request.Url?.Host + ":" + Request.Url?.Port;
+            string requestHeaders = string.Join("; ", Request.Headers.AllKeys.Select(key => key + ": " + Request.Headers[key]));
+
+            Log.Information("進入會議資料編輯頁面,使用者權限：{Permission}, 會議Guid: {guid}",
+                Session["Permission"],
+                guid);
+
+            if (guid == null)
+            {
+                Log.Error("進入會議資料編輯頁面失敗！,使用者權限：{Permission}, 會議Guid: {guid}",
+                    Session["Permission"],
+                    guid);
+
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
+            }
+
+            // 找到對應的會議
+            RCS_MEETING meeting = db.RCS_MEETING.FirstOrDefault(m => m.AUTO_GUID == guid);
+            if (meeting == null)
+            {
+                Log.Error("進入會議資料編輯頁面失敗！,使用者權限：{Permission}, 會議Guid: {guid}",
+                    Session["Permission"],
+                    guid);
+                return HttpNotFound();
+            }
+
+            // 查詢出對應會議的所有未被標記為刪除狀態的成員
+            List<RCS_MEMBER> meetingMembers = db.RCS_MEMBER
+                .Where(m => m.MEETING_AUTO_ID == meeting.AUTO_ID && !m.IS_DELETED)
+                .ToList() ?? new List<RCS_MEMBER>();
+
+            // 建立 ViewModel，將會議資料和成員傳遞到 View
+            MeetingEditViewModel viewModel = new MeetingEditViewModel
+            {
+                Meeting = meeting,
+                Members = meetingMembers
+            };
+
+            Log.Information("進入會議資料編輯頁面結束,使用者權限：{Permission}, 會議Guid: {guid}",
+                Session["Permission"],
+                guid);
+
+            return View(viewModel);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [AuthorizeFilter]
+        public JsonResult Edit(MeetingEditViewModel viewModel)
+        {
+            string RequestIp = Request.UserHostAddress;
+            string serverMachineName = Environment.MachineName;
+            string requestMethod = Request.HttpMethod;
+            string requestUrl = Request.Url?.AbsoluteUri;
+            string requestUserAgent = Request.UserAgent;
+            string RequestHost = Request.UserHostAddress;
+            string requestReferrer = Request.UrlReferrer?.ToString();
+            string workMachine = Request.Url?.Host + ":" + Request.Url?.Port;
+            string requestHeaders = string.Join("; ", Request.Headers.AllKeys.Select(key => key + ": " + Request.Headers[key]));
+
+            Log.Information("會議記錄編輯,使用者權限：{Permission}, 會議名稱: {meetingName}, 開始時間: {meetingStart}, 結束時間: {meetingEnd}",
+                Session["Permission"],
+                viewModel.Meeting.MEETING_NAME,
+                viewModel.Meeting.MEETING_START,
+                viewModel.Meeting.MEETING_END);
+
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    // 查詢對應的會議記錄
+                    RCS_MEETING existingMeeting = db.RCS_MEETING.FirstOrDefault(m => m.AUTO_ID == viewModel.Meeting.AUTO_ID);
+                    if (existingMeeting == null)
+                    {
+                        Log.Error("會議記錄編輯失敗！,使用者權限：{Permission}, 會議名稱: {meetingName}, 開始時間: {meetingStart}, 結束時間: {meetingEnd}",
+                            Session["Permission"],
+                            viewModel.Meeting.MEETING_NAME,
+                            viewModel.Meeting.MEETING_START,
+                            viewModel.Meeting.MEETING_END);
+                        return Json(new { success = false, message = "找不到該會議。" });
+                    }
+
+                    // 更新會議資料
+                    existingMeeting.MEETING_NAME = viewModel.Meeting.MEETING_NAME;
+                    existingMeeting.MEETING_START = viewModel.Meeting.MEETING_START;
+                    existingMeeting.MEETING_END = viewModel.Meeting.MEETING_END;
+                    existingMeeting.MODIFY_BY = Session["Permission"].ToString();
+                    existingMeeting.MODIFY_TIME = DateTime.Now;
+
+                    db.Entry(existingMeeting).State = EntityState.Modified;
+                    db.SaveChanges();
+
+                    Log.Information("會議記錄編輯結束,使用者權限：{Permission}, 會議名稱: {meetingName}, 開始時間: {meetingStart}, 結束時間: {meetingEnd}",
+                        Session["Permission"],
+                        viewModel.Meeting.MEETING_NAME,
+                        viewModel.Meeting.MEETING_START,
+                        viewModel.Meeting.MEETING_END);
+
+                    // 成功返回
+                    return Json(new { success = true });
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("會議記錄編輯失敗！,使用者權限：{Permission}, 會議名稱: {meetingName}, 開始時間: {meetingStart}, 結束時間: {meetingEnd}",
+                            Session["Permission"],
+                            viewModel.Meeting.MEETING_NAME,
+                            viewModel.Meeting.MEETING_START,
+                            viewModel.Meeting.MEETING_END);
+                    return Json(new { success = false, message = "更新會議資料時發生錯誤：" + ex.Message });
+                }
+            }
+            Log.Error("會議記錄編輯失敗！,使用者權限：{Permission}, 會議名稱: {meetingName}, 開始時間: {meetingStart}, 結束時間: {meetingEnd}",
+                            Session["Permission"],
+                            viewModel.Meeting.MEETING_NAME,
+                            viewModel.Meeting.MEETING_START,
+                            viewModel.Meeting.MEETING_END);
+
+            return Json(new { success = false, message = "請確認表單資料是否正確。" });
+        }
+
+        [HttpGet]
+        public ActionResult DownloadMemberList(Guid guid)
+        {
+            string RequestIp = Request.UserHostAddress;
+            string serverMachineName = Environment.MachineName;
+            string requestMethod = Request.HttpMethod;
+            string requestUrl = Request.Url?.AbsoluteUri;
+            string requestUserAgent = Request.UserAgent;
+            string RequestHost = Request.UserHostAddress;
+            string requestReferrer = Request.UrlReferrer?.ToString();
+            string workMachine = Request.Url?.Host + ":" + Request.Url?.Port;
+            string requestHeaders = string.Join("; ", Request.Headers.AllKeys.Select(key => key + ": " + Request.Headers[key]));
+
+            Log.Information("下載成員名單,使用者權限：{Permission}, 會議Guid: {guid}",
+                Session["Permission"],
+                guid);
+
+            // 根據 GUID 找到對應的會議資料
+            RCS_MEETING meeting = db.RCS_MEETING.FirstOrDefault(m => m.AUTO_GUID == guid);
+            if (meeting == null)
+            {
+                Log.Error("下載成員名單失敗！,使用者權限：{Permission}, 會議Guid: {guid}",
+                Session["Permission"],
+                guid);
+                return HttpNotFound("找不到會議");
+            }
+
+            // 查詢會議人員名單，依GROUP_NAME分組，並過濾掉被標記為刪除狀態的成員
+            List<IGrouping<string, RCS_MEMBER>> membersGroupedByGroupName = db.RCS_MEMBER
+                .Where(m => m.MEETING_AUTO_ID == meeting.AUTO_ID && !m.IS_DELETED) // 過濾掉已刪除的成員
+                .GroupBy(m => m.GROUP_NAME ?? "不分組")
+                .ToList();
+
+            // 維持北中高沛華沛榮固定排序，並將不在list中的組別放到最後
+            List<string> groupOrder = new List<string> { "不分組", "PS.TPE", "PC.TPE", "PS.TXG", "PC.TXG", "PS.KHH", "PC.KHH" };
+            membersGroupedByGroupName = membersGroupedByGroupName
+                .OrderBy(g => groupOrder.IndexOf(g.Key) >= 0 ? groupOrder.IndexOf(g.Key) : int.MaxValue)
+                .ToList();
+
+            // EPPlus 需要設定授權模式為非商業用途
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
+            using (ExcelPackage package = new ExcelPackage())
+            {
+                ExcelWorksheet worksheet = package.Workbook.Worksheets.Add("人員名單");
+
+                // 設定表頭順序，確保"不分組"總是在第一列
+                List<string> groupNames = new List<string> { "不分組" };
+                groupNames.AddRange(membersGroupedByGroupName.Select(g => g.Key).Where(g => g != "不分組").ToList()); // 其餘分組保持原有順序
+
+                // 設定表頭
+                int col = 1;
+                foreach (string groupName in groupNames)
+                {
+                    worksheet.Cells[1, col].Value = groupName; // 使用 GROUP_NAME 作為表頭
+                    col++;
+                }
+
+                // 取得最多成員數目的群組，用於設定行數，避免跑版
+                int maxRows = membersGroupedByGroupName.Max(g => g.Count());
+
+                // 寫入成員名單
+                for (int row = 2; row <= maxRows + 1; row++)
+                {
+                    col = 1;
+                    foreach (string groupName in groupNames)
+                    {
+                        // 查詢對應組別
+                        IGrouping<string, RCS_MEMBER> group = membersGroupedByGroupName.FirstOrDefault(g => g.Key == groupName);
+
+                        if (group != null)
+                        {
+                            RCS_MEMBER member = group.ElementAtOrDefault(row - 2); // 查詢出目前對應的成員
+                            if (member != null)
+                            {
+                                worksheet.Cells[row, col].Value = member.MEMBER_NAME;
+                            }
+                        }
+                        col++;
+                    }
+                }
+
+                // 自動調整列寬
+                worksheet.Cells[worksheet.Dimension.Address].AutoFitColumns();
+
+                // 產生 Excel 檔案的 byte array
+                byte[] fileBytes = package.GetAsByteArray();
+
+                // 當前時間，用於增加時間戳記於檔案結尾
+                string currentTime = DateTime.Now.ToString("yyyyMMddHHmmss");
+
+                Log.Information("下載成員名單結束,使用者權限：{Permission}, 會議Guid: {guid}",
+                Session["Permission"],
+                guid);
+
+                // 回傳 Excel 文件，文件名稱為 "{會議名稱}人員名單.xlsx"
+                return File(fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"{meeting.MEETING_NAME}人員名單_{currentTime}.xlsx");
+            }
+        }
+
+        public ActionResult DownloadMeetingLink(Guid guid)
+        {
+            string RequestIp = Request.UserHostAddress;
+            string serverMachineName = Environment.MachineName;
+            string requestMethod = Request.HttpMethod;
+            string requestUrl = Request.Url?.AbsoluteUri;
+            string requestUserAgent = Request.UserAgent;
+            string RequestHost = Request.UserHostAddress;
+            string requestReferrer = Request.UrlReferrer?.ToString();
+            string workMachine = Request.Url?.Host + ":" + Request.Url?.Port;
+            string requestHeaders = string.Join("; ", Request.Headers.AllKeys.Select(key => key + ": " + Request.Headers[key]));
+
+            Log.Information("下載會議連結,使用者權限：{Permission}, 會議Guid: {guid}",
+                Session["Permission"],
+                guid);
+
+            // 根據 GUID 找到對應的會議資料
+            RCS_MEETING meeting = db.RCS_MEETING.FirstOrDefault(m => m.AUTO_GUID == guid);
+            if (meeting == null)
+            {
+                Log.Error("下載會議連結失敗！,使用者權限：{Permission}, 會議Guid: {guid}",
+                    Session["Permission"],
+                    guid);
+                return HttpNotFound("會議未找到");
+            }
+
+            // 生成會議抽籤頁面的 URL
+            string meetingLink = Url.Action("Index", "Raffle", new { guid = meeting.AUTO_GUID }, protocol: Request.Url.Scheme);
+
+            // 產生.url檔案的內容
+            string urlContent = "[InternetShortcut]\n";
+            urlContent += $"URL={meetingLink}\n";
+            urlContent += $"IDList=\n";
+            urlContent += $"HotKey=0\n";
+            urlContent += $"IconFile=explorer.exe,1\n";
+
+            byte[] byteArray = Encoding.UTF8.GetBytes(urlContent);
+
+            Log.Information("下載會議連結結束,使用者權限：{Permission}, 會議Guid: {guid}",
+                Session["Permission"],
+                guid);
+
+            return File(byteArray, "application/octet-stream", $"{meeting.MEETING_NAME}.url");
+        }
+
+        public ActionResult DownloadRaffleLog(Guid guid)
+        {
+            string RequestIp = Request.UserHostAddress;
+            string serverMachineName = Environment.MachineName;
+            string requestMethod = Request.HttpMethod;
+            string requestUrl = Request.Url?.AbsoluteUri;
+            string requestUserAgent = Request.UserAgent;
+            string RequestHost = Request.UserHostAddress;
+            string requestReferrer = Request.UrlReferrer?.ToString();
+            string workMachine = Request.Url?.Host + ":" + Request.Url?.Port;
+            string requestHeaders = string.Join("; ", Request.Headers.AllKeys.Select(key => key + ": " + Request.Headers[key]));
+
+            Log.Information("下載抽籤紀錄,使用者權限：{Permission}, 會議Guid: {guid}",
+                Session["Permission"],
+                guid);
+
+            // 根據傳入的 GUID 找出對應會議紀錄
+            RCS_MEETING meeting = db.RCS_MEETING.FirstOrDefault(m => m.AUTO_GUID == guid);
+            if (meeting == null)
+            {
+                Log.Error("下載抽籤紀錄失敗！,使用者權限：{Permission}, 會議Guid: {guid}",
+                    Session["Permission"],
+                    guid);
+                return HttpNotFound("會議未找到");
+            }
+
+            long meetingId = meeting.AUTO_ID;
+            string meetingName = meeting.MEETING_NAME;
+
+            // 判斷會議是否已經開始
+            DateTime currentTime = DateTime.Now;
+            bool isTestPeriod = currentTime < meeting.MEETING_START;
+
+            // EPPlus需要設定授權模式為非商業用途
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
+            // 查詢對應會議的抽籤記錄，過濾掉被標記為刪除狀態的成員和抽籤記錄
+            List<RaffleLogViewModel> raffleLogs = db.RCS_CALL_LOG
+                                                .Where(c => c.RCS_MEMBER.MEETING_AUTO_ID == meetingId && !c.IS_DELETED && !c.RCS_MEMBER.IS_DELETED) // 過濾被標記為刪除狀態的記錄和成員
+                                                .Select(c => new RaffleLogViewModel
+                                                {
+                                                    MemberName = c.RCS_MEMBER.MEMBER_NAME,
+                                                    GroupName = c.RCS_MEMBER.GROUP_NAME, // 增加組別名稱
+                                                    Round = c.ROUND,
+                                                    CreateTime = c.CREATE_TIME
+                                                })
+                                                .ToList();
+
+            // 如果會議尚未開始，只生成帶表頭的Excel文件
+            if (isTestPeriod)
+            {
+                raffleLogs.Clear(); // 清空記錄，不寫入任何數據，只寫入表頭
+            }
+            else
+            {
+                // 過濾掉負回合數，只保留正回合數的記錄
+                raffleLogs = raffleLogs.Where(log => log.Round >= 0).ToList();
+            }
+
+            // 使用 EPPlus 產生 Excel 對應的會議成員xlsx檔案
+            using (ExcelPackage package = new ExcelPackage())
+            {
+                ExcelWorksheet worksheet = package.Workbook.Worksheets.Add("抽籤紀錄");
+
+                // 設定表頭
+                worksheet.Cells[1, 1].Value = "組別名稱";
+                worksheet.Cells[1, 2].Value = "成員名稱";
+                worksheet.Cells[1, 3].Value = "回合數";
+                worksheet.Cells[1, 4].Value = "抽籤時間";
+
+                int row = 2; // 從第2列開始寫入(第1列為表頭)
+                foreach (RaffleLogViewModel log in raffleLogs)
+                {
+                    worksheet.Cells[row, 1].Value = log.GroupName;
+                    worksheet.Cells[row, 2].Value = log.MemberName;
+
+                    // 如果回合數是負數，讓該欄位為空白（應該不會進來此段邏輯了，因為已過濾掉負回合數）
+                    worksheet.Cells[row, 3].Value = log.Round >= 0 ? log.Round.ToString() : "";
+
+                    worksheet.Cells[row, 4].Value = log.CreateTime.ToString("yyyy-MM-dd HH:mm:ss");
+                    row++;
+                }
+
+                // 自動調整列寬
+                worksheet.Cells[worksheet.Dimension.Address].AutoFitColumns();
+
+                // 將生成的 Excel 轉換為 byte Array
+                byte[] fileBytes = package.GetAsByteArray();
+
+                // 當前時間，用於添加時間戳記於檔案結尾
+                string CurrentTime = DateTime.Now.ToString("yyyyMMddHHmmss");
+
+                Log.Information("下載抽籤紀錄結束,使用者權限：{Permission}, 會議Guid: {guid}",
+                Session["Permission"],
+                guid);
+
+                // 回傳 Excel 檔案，檔案名為 "抽籤紀錄_{會議名稱}.xlsx"
+                return File(fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"抽籤紀錄_{meetingName}_{CurrentTime}.xlsx");
+            }
+        }
+
+        public ActionResult Error()
+        {
+            return View(); // 這將會呈現位於 Views/Shared/Error.cshtml 的錯誤頁面
+        }
+
+        public ActionResult DownloadTemplate()
+        {
+            string RequestIp = Request.UserHostAddress;
+            string serverMachineName = Environment.MachineName;
+            string requestMethod = Request.HttpMethod;
+            string requestUrl = Request.Url?.AbsoluteUri;
+            string requestUserAgent = Request.UserAgent;
+            string RequestHost = Request.UserHostAddress;
+            string requestReferrer = Request.UrlReferrer?.ToString();
+            string workMachine = Request.Url?.Host + ":" + Request.Url?.Port;
+            string requestHeaders = string.Join("; ", Request.Headers.AllKeys.Select(key => key + ": " + Request.Headers[key]));
+
+            Log.Information("下載人員名單範本,使用者權限：{Permission}", Session["Permission"]);
+
+            string filePath = Server.MapPath("~/Content/files/抽籤人員名單模板.xlsx");
+            byte[] fileBytes = System.IO.File.ReadAllBytes(filePath);
+            string fileName = "抽籤人員名單模板.xlsx";
+
+            Log.Information("下載人員名單範本結束,使用者權限：{Permission}", Session["Permission"]);
+
+            return File(fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+        }
+    }
+}

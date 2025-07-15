@@ -1,0 +1,92 @@
+﻿using System;
+using System.IO;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using Serilog;
+
+namespace RollCall.Modules
+{
+    public class RequestResponseLoggingModule : IHttpModule
+    {
+        public void Init(HttpApplication context)
+        {
+            Log.Logger = new LoggerConfiguration()
+                .Enrich.FromLogContext()
+                .Enrich.WithEnvironmentUserName()
+                .Enrich.WithMachineName()
+                .Enrich.WithThreadId()
+                .WriteTo.Seq("http://192.168.210.54:5341", apiKey: "rYo7s6icQ11MGon0sKEa")
+                .WriteTo.Console()
+                .WriteTo.File("logs/log-.txt", rollingInterval: RollingInterval.Day)
+                .CreateLogger();
+
+            context.BeginRequest += (sender, e) =>
+            {
+                var app = (HttpApplication)sender;
+                var request = app.Context.Request;
+
+                // 过滤静态资源请求
+                if (IsStaticResource(request))
+                {
+                    return;
+                }
+
+                var requestInfo = new
+                {
+                    RequestHost = request.Url.Host,
+                    RequestIp = request.UserHostAddress,
+                    RequestMethod = request.HttpMethod,
+                    RequestReferrer = request.UrlReferrer?.ToString(),
+                    RequestUrl = request.Url.ToString(),
+                    RequestUserAgent = request.UserAgent,
+                    RequestHeaders = request.Headers.ToString(),
+                };
+
+                Log.Information("Request started: {@RequestInfo}", requestInfo);
+            };
+
+            context.EndRequest += (sender, e) =>
+            {
+                var app = (HttpApplication)sender;
+                var response = app.Context.Response;
+
+                // 过滤静态资源响应
+                if (IsStaticResource(app.Context.Request))
+                {
+                    return;
+                }
+                var responseContent = new
+                {
+                    StatusCode = response.StatusCode,
+                    StatusDescription = response.StatusDescription,
+                    ContentType = response.ContentType,
+                    ContentLength = response.Headers["Content-Length"],
+                    ResponseHeaders = response.Headers.ToString(),
+                };
+                Log.Information("Response sent: {@ResponseContent}", responseContent);
+            };
+        }
+
+        public void Dispose()
+        {
+            // 释放资源
+        }
+
+        private bool IsStaticResource(HttpRequest request)
+        {
+            string[] staticExtensions = { ".css", ".js", ".png", ".jpg", ".jpeg", ".gif", ".woff", ".woff2", ".ttf", ".svg", ".ico" };
+            string path = request.Path.ToLower();
+
+            foreach (var extension in staticExtensions)
+            {
+                if (path.EndsWith(extension))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+}

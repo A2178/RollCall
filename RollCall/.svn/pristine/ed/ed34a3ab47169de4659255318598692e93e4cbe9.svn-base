@@ -1,0 +1,339 @@
+﻿@model RollCall.Models.MeetingEditViewModel
+
+@{
+    ViewBag.Title = "Edit";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<link rel="stylesheet" href="~/Content/flatpickr.min.css">
+<script src="~/Content/flatpickr.js"></script>
+
+<style>
+
+    .horizontal-item {
+        font-size: 22px;
+    }
+
+    /* 固定表頭的樣式 */
+    .table-fixed-header thead th {
+        position: sticky;
+        top: 0;
+        background-color: #fff; /* 背景顏色防止內容與表頭重疊 */
+        z-index: 2;
+        box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1); /* 添加陰影效果，讓表頭更加突出 */
+    }
+
+    .table-centered th, .table-centered td {
+        text-align: center; /* 置中表格所有內容 */
+        vertical-align: middle; /* 垂直置中 */
+    }
+
+    thead th {
+        position: sticky;
+        top: 0;
+        background-color: white;
+        z-index: 100;
+        border: 2px solid #dee2e6; /* 確保有明顯的邊框 */
+        padding: 10px; /* 避免內容過於靠近邊框 */
+    }
+
+    tbody td {
+        border: 1px solid #dee2e6;
+        padding: 10px; /* 增加內邊距，讓內容不至於過於貼近邊框 */
+    }
+
+    table {
+        border-collapse: separate; /* 使用 separate 避免 border-collapse 影響 sticky */
+        width: 100%;
+        border-spacing: 0; /* 防止表格之間的空隙 */
+    }
+</style>
+
+<h1><strong>編輯會議記錄</strong></h1>
+
+@using (Html.BeginForm())
+{
+    @Html.AntiForgeryToken()
+
+    <div class="form-horizontal" style="margin-right:20px;">
+        @Html.ValidationSummary(true, "", new { @class = "text-danger" })
+
+        @Html.HiddenFor(model => model.Meeting.AUTO_ID)
+        @Html.HiddenFor(model => model.Meeting.AUTO_GUID)
+
+        <h3><strong>會議基本資料</strong></h3>
+
+        <!-- 水平排列的輸入框 -->
+        <div class="form-group horizontal-group" style="display: flex; justify-content: space-between; gap: 20px;">
+            <!-- 會議名稱 -->
+            <div class="horizontal-item" style="flex: 1;">
+                <label for="MeetingName">會議名稱</label>
+                @Html.EditorFor(model => model.Meeting.MEETING_NAME, new { htmlAttributes = new { @class = "form-control", @id = "meetingNameInput" } })
+                @Html.ValidationMessageFor(model => model.Meeting.MEETING_NAME, "", new { @class = "text-danger" })
+            </div>
+
+            <!-- 開始時間 -->
+            <div class="horizontal-item" style="flex: 1;">
+                <label for="MeetingStart">開始時間</label>
+                <input type="text" id="meetingStartInput" class="form-control" name="Meeting.MEETING_START" value="@Model.Meeting.MEETING_START?.ToString(" yyyy-MM-dd HH:mm")" />
+                @Html.ValidationMessageFor(model => model.Meeting.MEETING_START, "", new { @class = "text-danger" })
+            </div>
+
+            <!-- 結束時間 -->
+            <div class="horizontal-item" style="flex: 1;">
+                <label for="MeetingEnd">結束時間</label>
+                <input type="text" id="meetingEndInput" class="form-control" name="Meeting.MEETING_END" value="@Model.Meeting.MEETING_END?.ToString(" yyyy-MM-dd HH:mm")" />
+                @Html.ValidationMessageFor(model => model.Meeting.MEETING_END, "", new { @class = "text-danger" })
+            </div>
+
+            <!-- 保存會議資料 -->
+            <div class="horizontal-item" style="flex: 1;">
+                <button type="button" class="btn btn-success" style="margin-top: 35px;" onclick="updateMeeting()">保存會議資料</button>
+            </div>
+        </div>
+
+        <hr style="border: 1px solid lightgray;" />
+        <!-- 人員名單部分 -->
+        <h3><strong>與會人員名單</strong></h3>
+        <!-- 包含捲動功能的table -->
+        <div style="max-height: 300px; overflow-y: auto;">
+            @if (Model.Members != null && Model.Members.Any())
+            {
+                <table class="table table-bordered table-centered">
+                    <thead>
+                        <tr>
+                            <th>成員名稱</th>
+                            <th>組別名稱</th>
+                            <th>動作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var member in Model.Members)
+                        {
+                            <tr>
+                                <td>@member.MEMBER_NAME</td>
+                                <td>@member.GROUP_NAME</td>
+                                <td>
+                                    <!-- 編輯按鈕將對應的成員名稱、組別名稱和 AUTO_ID 傳遞給 editMember 方法 -->
+                                    <button type="button" class="btn btn-warning" onclick="editMember('@member.MEMBER_NAME', '@member.GROUP_NAME', '@member.AUTO_ID')">編輯</button>
+                                    <button type="button" class="btn btn-danger" onclick="removeMember('@member.AUTO_ID')">刪除</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <p>目前沒有任何成員。</p>
+            }
+        </div>
+
+        <!-- 新增成員的表單 -->
+        <div class="form-group" style="padding: 10px;">
+            <!-- 隱藏欄位來存儲當前正在編輯的成員ID -->
+            <input type="hidden" id="editingMemberId" value="">
+
+            <div style="display:flex;">
+                <!-- 左邊唯讀的原始名稱和原始組別名稱 -->
+                <div style="margin-left:70%; width:200px;">
+                    <label for="originalMemberName">原始名稱</label>
+                    <input type="text" id="originalMemberName" class="form-control" style="background-color:lightgray;" readonly />
+
+                    <label for="originalGroupName" style="margin-top: 10px;">原始組別名稱</label>
+                    <input type="text" id="originalGroupName" class="form-control" style="background-color: lightgray;" readonly />
+                </div>
+
+                <!-- 右邊可編輯的輸入框 -->
+                <div style="margin-left: 50px; width: 200px;" offset-md-1">
+                    <label for="newMemberName">新增/修改成員</label>
+                    <input type="text" id="newMemberName" class="form-control" placeholder="輸入成員名稱" />
+
+                    <label for="newGroupName" style="margin-top: 10px;">新增/修改成員分組</label>
+                    <input type="text" id="newGroupName" class="form-control" placeholder="輸入分組名稱" />
+
+                    <!-- 新增/修改按鈕位於右側下方 -->
+                    <button type="button" class="btn btn-success" style="margin-top: 10px;" onclick="addOrUpdateMember()">新增/修改</button>
+                </div>
+            </div>
+
+            <!-- 返回會議記錄頁面按鈕 -->
+            <div class="row" style="margin-top: 20px; margin-left: 91%;">
+                <div class="col-md-5 offset-md-6">
+                    <button type="button" class="btn btn-info" onclick="redirectToMeetingRecords()">返回會議記錄</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    @Scripts.Render("~/bundles/jqueryval")
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+    <script type="text/javascript">
+        document.addEventListener('DOMContentLoaded', function () {
+            var meetingStart = '@(Model.Meeting.MEETING_START.HasValue ? Model.Meeting.MEETING_START.Value.ToString("yyyy-MM-dd HH:mm") : "")';
+            var meetingEnd = '@(Model.Meeting.MEETING_END.HasValue ? Model.Meeting.MEETING_END.Value.ToString("yyyy-MM-dd HH:mm") : "")';
+
+            flatpickr("#meetingStartInput", {
+                enableTime: true,
+                time_24hr: true,
+                dateFormat: "Y-m-d H:i",
+                defaultDate: meetingStart
+            });
+
+            flatpickr("#meetingEndInput", {
+                enableTime: true,
+                time_24hr: true,
+                dateFormat: "Y-m-d H:i",
+                defaultDate: meetingEnd
+            });
+        });
+
+        // 顯示Modal
+        function showModal(message, duration = 3000) {
+            document.getElementById('alertModalBody').innerText = message;
+
+            setTimeout(function () {
+                $('#alertModal').modal('show');
+                setTimeout(function () {
+                    $('#alertModal').modal('hide');
+                }, duration);
+            }, 200);
+        }
+
+        function redirectToMeetingRecords() {
+            //取得今天0時0分
+            var today = new Date();
+            var year = today.getFullYear();
+            var month = String(today.getMonth() + 1).padStart(2, '0');
+            var day = String(today.getDate()).padStart(2, '0');
+            var hours = '00';
+            var minutes = '00';
+
+            var searchStart = `${year}-${month}-${day} ${hours}:${minutes}`;
+
+            // 返回會議記錄頁面，並使用 searchStart 作為參數
+            window.location.href = '@Url.Action("Index", "RCS_MEETING")' + '?searchStart=' + encodeURIComponent(searchStart);
+        }
+
+        var memberToDeleteId = null; // 用來存儲當前選中的成員ID
+
+        function removeMember(memberId) {
+            memberToDeleteId = memberId; // 設置當前選中的成員ID
+            $('#confirmDeleteModal').modal('show'); // 顯示確認刪除的模態框
+        }
+
+        document.getElementById('confirmDeleteBtn').addEventListener('click', function () {
+            // 當用戶確認刪除後調用的邏輯
+            if (memberToDeleteId) {
+                $.post('@Url.Action("RemoveMember", "RCS_MEETING")', { memberId: memberToDeleteId }, function (data) {
+                    if (data.success) {
+                        $('#confirmDeleteModal').modal('hide'); // 隱藏模態框
+                        location.reload(); // 刪除成功後重新加載頁面
+                    } else {
+                        $('#confirmDeleteModal').modal('hide');
+                    showModal("刪除失敗");
+                    }
+                });
+            }
+        });
+
+
+        function editMember(memberName, groupName, memberId) {
+            // 將資料指派到唯讀的原始名稱和組別名稱的輸入框中
+            $('#originalMemberName').val(memberName);
+            $('#originalGroupName').val(groupName);
+
+            // 將資料指派到可編輯的輸入框中
+            $('#newMemberName').val(memberName);
+            $('#newGroupName').val(groupName);
+
+            // 指派正在編輯的成員ID到隱藏的輸入框
+            $('#editingMemberId').val(memberId);
+        }
+function addOrUpdateMember() {
+    var memberName = $('#newMemberName').val();
+    var groupName = $('#newGroupName').val();
+    var editingMemberId = $('#editingMemberId').val();
+
+    if (memberName) {
+        $.ajax({
+            url: '@Url.Action("AddOrUpdateMember", "RCS_MEETING")',
+            type: 'POST',
+            data: {
+                meetingId: '@Model.Meeting.AUTO_ID',
+                memberName: memberName,
+                groupName: groupName,
+                editingMemberId: editingMemberId
+            },
+            success: function (data) {
+                if (data.success) {
+                    showModal("新增/更改成員資料成功！");
+                    setTimeout(function() {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    showModal("操作失敗: " + data.message);
+                }
+            },
+            error: function () {
+                showModal("操作發生錯誤");
+            }
+        });
+    } else {
+        showModal("請輸入成員名稱");
+    }
+}
+
+function updateMeeting() {
+    var meetingId = '@Model.Meeting.AUTO_ID';
+    var meetingName = $('#meetingNameInput').val();
+    var meetingStart = $('#meetingStartInput').val();
+    var meetingEnd = $('#meetingEndInput').val();
+
+    // 將開始和結束時間轉換為 Date 對象
+    var meetingStartDate = new Date(meetingStart);
+    var meetingEndDate = new Date(meetingEnd);
+
+    if (!meetingName || !meetingStart || !meetingEnd) {
+        showModal("請確認所有欄位已填寫完整");
+        return;
+    }
+
+    // 判斷結束時間是否大於開始時間
+    if (meetingStartDate >= meetingEndDate) {
+        showModal("結束時間不得小於或等於開始時間");
+        return;
+    }
+
+    $.ajax({
+        url: '@Url.Action("Edit", "RCS_MEETING")',
+        type: 'POST',
+        data: {
+            __RequestVerificationToken: $('input[name="__RequestVerificationToken"]').val(),
+            Meeting: {
+                AUTO_ID: meetingId,
+                MEETING_NAME: meetingName,
+                MEETING_START: meetingStart,
+                MEETING_END: meetingEnd
+            }
+        },
+        success: function (response) {
+            if (response.success) {
+                showModal("會議資料更新成功！");
+                setTimeout(function() {
+                    location.reload();
+                }, 2000);
+            } else {
+                showModal("更新失敗：" + response.message);
+            }
+        },
+        error: function () {
+            showModal("操作失敗，請稍後重試。");
+        }
+    });
+}
+    </script>
+}

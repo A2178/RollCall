@@ -1,0 +1,89 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.Web.Mvc;
+using System.Web.Security; 
+using RollCall.Models;
+using BCrypt.Net;
+
+namespace RollCall.Controllers
+{
+    public class AccountController : Controller
+    {
+        private TEST_RollCallDBEntities db = new TEST_RollCallDBEntities();
+
+        // 顯示登入頁面
+        public ActionResult Login()
+        {
+            return View();
+        }
+
+        // 登入邏輯處理
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult Login(string account, string password)
+        {
+            var user = db.RCS_USER_PERMISSION
+                         .FirstOrDefault(u => u.ACCOUNT == account && u.IS_ACTIVED && !u.IS_DELETED);
+
+            if (user == null || !BCrypt.Net.BCrypt.Verify(password, user.PASSWORD))
+            {
+                ModelState.AddModelError("", "帳號或密碼錯誤。");
+                return View();
+            }
+
+            // 儲存使用者資訊到 Session
+            Session["UserName"] = user.USER_NAME;
+            Session["Permission"] = user.PERMISSION;
+
+            // 根據權限重導至不同頁面
+            if (user.PERMISSION == "Admin")
+            {
+                return RedirectToAction("AdminDashboard", "Home");
+            }
+            else
+            {
+                return RedirectToAction("UserDashboard", "Home");
+            }
+        }
+
+        // 登出功能
+        public ActionResult Logout()
+        {
+            Session.Clear(); // 清除所有 Session
+            return RedirectToAction("Login");
+        }
+
+        [HttpPost]
+        public ActionResult Register(string account, string password, string userName, string permission)
+        {
+            if (db.RCS_USER_PERMISSION.Any(u => u.ACCOUNT == account))
+            {
+                ModelState.AddModelError("", "該帳號已存在。");
+                return View();
+            }
+
+            // 密碼加密
+            string hashedPassword = BCrypt.Net.BCrypt.HashPassword(password);
+
+            var user = new RCS_USER_PERMISSION
+            {
+                ACCOUNT = account,
+                PASSWORD = hashedPassword,
+                USER_NAME = userName,
+                PERMISSION = permission,
+                IS_ACTIVED = true,
+                CREATE_BY = "system", // 根據需求修改
+                CREATE_TIME = DateTime.Now
+            };
+
+            db.RCS_USER_PERMISSION.Add(user);
+            db.SaveChanges();
+
+            TempData["Message"] = "註冊成功！";
+            return View("Register");
+        }
+
+    }
+}
